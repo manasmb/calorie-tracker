@@ -76,7 +76,7 @@ export async function saveGoals(goals) {
 export async function getGoals() {
   const db = await getDB();
   const g = await db.get("goals", "main");
-  return g || { calories: 2000, protein: 60, carbs: 250, fat: 65 };
+  return g || { calories: 2000, protein: 60, carbs: 250, fat: 65, fiber: 30, sugar: 50, sodium: 2300 };
 }
 
 // ── Helpers ──────────────────────────────────────────────────

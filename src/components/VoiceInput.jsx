@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { searchFood, getMealTypeByTime, parseMealTypeFromText, parseQuantityFromText } from "../foodDatabase";
+import { searchFood, getMealTypeByTime, parseMealTypeFromText, parseAmountFromText } from "../foodDatabase";
 import { getAllRecipes } from "../db";
 
 export default function VoiceInput({ onFoodDetected }) {
@@ -11,7 +11,7 @@ export default function VoiceInput({ onFoodDetected }) {
   async function startListening() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setStatus("Speech recognition not supported in this browser. Use Chrome.");
+      setStatus("Speech recognition not supported. Please use Chrome.");
       return;
     }
 
@@ -20,37 +20,21 @@ export default function VoiceInput({ onFoodDetected }) {
     recog.interimResults = true;
     recog.continuous = false;
     recogRef.current = recog;
+    let finalText = "";
 
-    recog.onstart = () => {
-      setListening(true);
-      setStatus("Listening... speak now");
-      setTranscript("");
-    };
+    recog.onstart = () => { setListening(true); setStatus("Listening... speak now"); setTranscript(""); };
 
     recog.onresult = (e) => {
-      const text = Array.from(e.results)
-        .map(r => r[0].transcript)
-        .join(" ");
-      setTranscript(text);
+      finalText = Array.from(e.results).map(r => r[0].transcript).join(" ");
+      setTranscript(finalText);
     };
 
     recog.onend = async () => {
       setListening(false);
-      const text = recogRef.current._lastTranscript || transcript;
-      if (text) await processTranscript(text);
+      if (finalText) await processTranscript(finalText);
     };
 
-    recog.onerror = (e) => {
-      setListening(false);
-      setStatus(`Error: ${e.error}. Try again.`);
-    };
-
-    // Capture final transcript before onend fires
-    recog._lastTranscript = "";
-    recog.addEventListener("result", (e) => {
-      recog._lastTranscript = Array.from(e.results).map(r => r[0].transcript).join(" ");
-    });
-
+    recog.onerror = (e) => { setListening(false); setStatus(`Error: ${e.error}. Try again.`); };
     recog.start();
   }
 
@@ -61,41 +45,27 @@ export default function VoiceInput({ onFoodDetected }) {
   async function processTranscript(text) {
     setStatus(`Processing: "${text}"`);
 
-    // Load custom recipes too
     const customRecipes = await getAllRecipes();
+    const meal = parseMealTypeFromText(text) || getMealTypeByTime();
+    const { quantity, grams } = parseAmountFromText(text);
 
-    // Detect meal type
-    const mealFromText = parseMealTypeFromText(text);
-    const meal = mealFromText || getMealTypeByTime();
-
-    // Detect quantity
-    const qty = parseQuantityFromText(text);
-
-    // Search food — check custom recipes first, then database
-    const customMatch = customRecipes.find(r =>
-      text.toLowerCase().includes(r.name.toLowerCase())
-    );
-
+    // Check custom recipes first
+    const customMatch = customRecipes.find(r => text.toLowerCase().includes(r.name.toLowerCase()));
     if (customMatch) {
-      onFoodDetected({
-        food: customMatch,
-        quantity: qty,
-        meal,
-        transcript: text,
-      });
-      setStatus(`✓ Logged ${qty > 1 ? qty + "x " : ""}${customMatch.name} for ${meal}`);
+      onFoodDetected({ food: customMatch, quantity, grams, meal, transcript: text });
+      setStatus(`✓ Logged ${customMatch.name}${grams ? ` (${grams}g)` : quantity > 1 ? ` x${quantity}` : ""} for ${meal}`);
       return;
     }
 
-    const results = searchFood(text);
+    const results = searchFood(text, customRecipes);
     if (results.length === 1) {
-      onFoodDetected({ food: results[0], quantity: qty, meal, transcript: text });
-      setStatus(`✓ Logged ${qty > 1 ? qty + "x " : ""}${results[0].name} for ${meal}`);
+      onFoodDetected({ food: results[0], quantity, grams, meal, transcript: text });
+      setStatus(`✓ Logged ${results[0].name}${grams ? ` (${grams}g)` : quantity > 1 ? ` x${quantity}` : ""} for ${meal}`);
     } else if (results.length > 1) {
-      onFoodDetected({ food: null, candidates: results, quantity: qty, meal, transcript: text });
+      onFoodDetected({ food: null, candidates: results, quantity, grams, meal, transcript: text });
       setStatus(`Found ${results.length} matches — pick one below`);
     } else {
-      setStatus(`Couldn't find "${text}". Try adding it as a custom food.`);
+      setStatus(`Couldn't identify the food. Try searching manually or add it as a custom food.`);
     }
   }
 
@@ -107,12 +77,9 @@ export default function VoiceInput({ onFoodDetected }) {
         aria-label="Voice input"
       >
         <span className="mic-icon">{listening ? "⏹" : "🎤"}</span>
-        <span className="mic-label">{listening ? "Tap to stop" : "Tap to speak"}</span>
+        <span className="mic-label">{listening ? "Stop" : "Speak"}</span>
       </button>
-
-      {transcript && (
-        <p className="transcript">"{transcript}"</p>
-      )}
+      {transcript && <p className="transcript">"{transcript}"</p>}
       <p className="voice-status">{status}</p>
     </div>
   );

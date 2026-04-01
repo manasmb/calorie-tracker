@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DailyLog from "./components/DailyLog";
 import History from "./components/History";
 import CustomRecipe from "./components/CustomRecipe";
 import Goals from "./components/Goals";
+import LoginScreen from "./components/LoginScreen";
+import { onAuthChange, signOutUser } from "./firebase";
 import "./App.css";
 
 const TABS = [
@@ -13,13 +15,37 @@ const TABS = [
 ];
 
 export default function App() {
-  const [tab, setTab] = useState("today");
+  const [tab, setTab]     = useState("today");
+  const [user, setUser]   = useState(undefined); // undefined = loading, null = signed out
+
+  useEffect(() => {
+    return onAuthChange(setUser);
+  }, []);
+
+  // Loading splash while Firebase resolves auth state
+  if (user === undefined) {
+    return (
+      <div className="auth-loading">
+        <span className="auth-loading-spinner" />
+      </div>
+    );
+  }
+
+  if (!user) return <LoginScreen />;
 
   return (
     <div className="app">
       <header className="app-header">
-        <h1 className="app-title">CalTrack</h1>
-        <p className="app-subtitle">Indian Food Calorie Tracker</p>
+        <div className="header-left">
+          <h1 className="app-title">CalTrack</h1>
+          <p className="app-subtitle">Indian Food Calorie Tracker</p>
+        </div>
+        <div className="header-user">
+          {user.photoURL && (
+            <img className="user-avatar" src={user.photoURL} alt={user.displayName} referrerPolicy="no-referrer" />
+          )}
+          <button className="logout-btn" onClick={signOutUser} title="Sign out">↩</button>
+        </div>
       </header>
 
       <main className="app-main">

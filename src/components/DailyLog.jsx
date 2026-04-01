@@ -127,8 +127,19 @@ export default function DailyLog() {
     { cal:0, protein:0, carbs:0, fat:0, fiber:0, sugar:0, sodium:0 }
   );
 
+  // Round all totals for display
+  const rt = {
+    cal:     Math.round(totals.cal),
+    protein: Math.round(totals.protein),
+    carbs:   Math.round(totals.carbs),
+    fat:     Math.round(totals.fat),
+    fiber:   Math.round(totals.fiber),
+    sugar:   Math.round(totals.sugar),
+    sodium:  Math.round(totals.sodium),
+  };
+
   const totalBurned = exercises.reduce((s, e) => s + e.calBurned, 0);
-  const netCal      = totals.cal - totalBurned;
+  const netCal      = rt.cal - totalBurned;
   const remaining   = goals.calories - netCal;
   const progress    = Math.min(Math.max(netCal / goals.calories, 0), 1);
   const dashOffset  = CIRCUMFERENCE * (1 - progress);
@@ -179,7 +190,7 @@ export default function DailyLog() {
           {/* Eaten / Burned row */}
           {totalBurned > 0 && (
             <div className="flex gap-4 mt-2 text-xs font-semibold">
-              <span className="text-on-surface-variant">🍽 {totals.cal} eaten</span>
+              <span className="text-on-surface-variant">🍽 {rt.cal} eaten</span>
               <span className="text-primary">🔥 −{totalBurned} burned</span>
             </div>
           )}
@@ -187,9 +198,9 @@ export default function DailyLog() {
           {/* Macro mini-bars */}
           <div className="mt-6 grid grid-cols-3 gap-8 w-full max-w-xs">
             {[
-              { label: "Protein", value: totals.protein, goal: goals.protein, color: "bg-secondary" },
-              { label: "Carbs",   value: totals.carbs,   goal: goals.carbs,   color: "bg-primary-container" },
-              { label: "Fats",    value: totals.fat,     goal: goals.fat,     color: "bg-tertiary-container" },
+              { label: "Protein", value: rt.protein, goal: goals.protein, color: "bg-secondary" },
+              { label: "Carbs",   value: rt.carbs,   goal: goals.carbs,   color: "bg-primary-container" },
+              { label: "Fats",    value: rt.fat,     goal: goals.fat,     color: "bg-tertiary-container" },
             ].map(({ label, value, goal: g, color }) => {
               const pct = Math.min((value / g) * 100, 100);
               return (
@@ -206,9 +217,9 @@ export default function DailyLog() {
 
           {/* Extra macros */}
           <div className="mt-4 flex gap-6 text-xs text-on-surface-variant">
-            <span>Fiber <strong className="text-on-surface">{totals.fiber}g</strong></span>
-            <span>Sugar <strong className="text-on-surface">{totals.sugar}g</strong></span>
-            <span>Sodium <strong className="text-on-surface">{totals.sodium}mg</strong></span>
+            <span>Fiber <strong className="text-on-surface">{rt.fiber}g</strong></span>
+            <span>Sugar <strong className="text-on-surface">{rt.sugar}g</strong></span>
+            <span>Sodium <strong className="text-on-surface">{rt.sodium}mg</strong></span>
           </div>
         </div>
       </section>
@@ -283,7 +294,7 @@ export default function DailyLog() {
                   className="flex justify-between items-center w-full px-4 py-3 bg-surface-container-low hover:bg-surface-container text-left transition-colors">
                   <div>
                     <p className="text-sm font-semibold text-on-surface">{f.name}</p>
-                    <p className="text-xs text-on-surface-variant">{f.serving} · P:{f.protein}g C:{f.carbs}g F:{f.fat}g</p>
+                    <p className="text-xs text-on-surface-variant">{f.serving} · P:{Math.round(f.protein)}g C:{Math.round(f.carbs)}g F:{Math.round(f.fat)}g</p>
                   </div>
                   <span className="text-sm font-bold text-primary ml-3">{f.cal}</span>
                 </button>
@@ -431,12 +442,12 @@ export default function DailyLog() {
                         {expandedId === entry.id && !isEditing && (
                           <div className="grid grid-cols-3 gap-2 mt-1 px-1">
                             {[
-                              ["Protein", `${entry.protein}g`],
-                              ["Carbs",   `${entry.carbs}g`],
-                              ["Fat",     `${entry.fat}g`],
-                              ["Fiber",   `${entry.fiber||0}g`],
-                              ["Sugar",   `${entry.sugar||0}g`],
-                              ["Sodium",  `${entry.sodium||0}mg`],
+                              ["Protein", `${Math.round(entry.protein)}g`],
+                              ["Carbs",   `${Math.round(entry.carbs)}g`],
+                              ["Fat",     `${Math.round(entry.fat)}g`],
+                              ["Fiber",   `${Math.round(entry.fiber||0)}g`],
+                              ["Sugar",   `${Math.round(entry.sugar||0)}g`],
+                              ["Sodium",  `${Math.round(entry.sodium||0)}mg`],
                             ].map(([k,v]) => (
                               <div key={k} className="bg-surface-container-low rounded-xl p-2 text-center">
                                 <p className="text-[10px] text-on-surface-variant uppercase tracking-wide">{k}</p>

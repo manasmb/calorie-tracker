@@ -218,8 +218,8 @@ export default function CustomRecipe() {
               <p className="text-xs text-on-surface-variant">{r.serving}{r.ingredients ? ` · ${r.ingredients.length} ingredients` : ""}</p>
             </div>
             <div className="text-right text-xs text-on-surface-variant space-y-0.5 mr-2">
-              <p className="font-bold text-primary text-sm">{r.cal} kcal</p>
-              <p>P:{r.protein}g C:{r.carbs}g F:{r.fat}g</p>
+              <p className="font-bold text-primary text-sm">{Math.round(r.cal)} kcal</p>
+              <p>P:{Math.round(r.protein)}g C:{Math.round(r.carbs)}g F:{Math.round(r.fat)}g</p>
             </div>
             <button onClick={async () => { await deleteRecipe(r.id); load(); }}
               className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-error-container transition-colors text-on-surface-variant flex-shrink-0">

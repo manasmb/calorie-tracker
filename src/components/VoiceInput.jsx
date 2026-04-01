@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { searchFood, getMealTypeByTime, parseMealTypeFromText, parseAmountFromText } from "../foodDatabase";
 import { getAllRecipes } from "../db";
+import { getGlobalFoods } from "../globalFoods";
 
 function speak(text) {
   if (!window.speechSynthesis) return;
@@ -34,16 +35,17 @@ export default function VoiceInput({ onFoodDetected }) {
 
   async function processTranscript(text) {
     setStatus(`Processing…`);
-    const customs = await getAllRecipes();
+    const [customs, globals] = await Promise.all([getAllRecipes(), getGlobalFoods()]);
+    const allExtras = [...customs, ...globals];
     const meal    = parseMealTypeFromText(text) || getMealTypeByTime();
     const { quantity, grams } = parseAmountFromText(text);
-    const customMatch = customs.find(r => text.toLowerCase().includes(r.name.toLowerCase()));
+    const customMatch = allExtras.find(r => text.toLowerCase().includes(r.name.toLowerCase()));
     if (customMatch) {
       onFoodDetected({ food: customMatch, quantity, grams, meal });
       const msg = confirmMsg(customMatch.name, quantity, grams, meal);
       setStatus(`✓ ${msg}`); speak(msg); return;
     }
-    const results = searchFood(text, customs);
+    const results = searchFood(text, allExtras);
     if (results.length === 1) {
       onFoodDetected({ food: results[0], quantity, grams, meal });
       const msg = confirmMsg(results[0].name, quantity, grams, meal);

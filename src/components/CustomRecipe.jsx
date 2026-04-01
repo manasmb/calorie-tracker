@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { saveRecipe, getAllRecipes, deleteRecipe } from "../db";
 import { searchFood, calcMacros } from "../foodDatabase";
+import { getGlobalFoods } from "../globalFoods";
 
 const EMPTY_QUICK = { name:"", serving:"1 serving", cal:"", protein:"", carbs:"", fat:"", fiber:"", sugar:"", sodium:"" };
 const UNITS = ["g","ml","tsp","tbsp","cup","serving"];
@@ -48,7 +49,8 @@ export default function CustomRecipe() {
   async function handleIngredientSearch(q) {
     setIngredientQuery(q);
     if (q.length < 2) { setIngredientResults([]); return; }
-    setIngredientResults(searchFood(q, await getAllRecipes()));
+    const [customs, globals] = await Promise.all([getAllRecipes(), getGlobalFoods()]);
+    setIngredientResults(searchFood(q, [...customs, ...globals]));
   }
 
   function addIngredient(food) { setIngredients(p => [...p, { food, amount: food.gramsPerServing, unit:"g" }]); setIngredientQuery(""); setIngredientResults([]); }

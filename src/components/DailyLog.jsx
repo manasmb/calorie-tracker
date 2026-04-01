@@ -3,6 +3,7 @@ import VoiceInput from "./VoiceInput";
 import ExerciseSection from "./ExerciseSection";
 import { addLogEntry, getLogsByDate, deleteLogEntry, updateLogEntry, getGoals, getExercisesByDate, todayStr, getAllRecipes } from "../db";
 import { searchFood, calcMacros, getMealTypeByTime } from "../foodDatabase";
+import { getGlobalFoods } from "../globalFoods";
 
 const MEALS = ["breakfast", "lunch", "snack", "dinner"];
 const MEAL_ICONS   = { breakfast: "wb_sunny", lunch: "restaurant", snack: "nutrition", dinner: "nights_stay" };
@@ -102,8 +103,8 @@ export default function DailyLog() {
   async function handleManualSearch(q) {
     setManualQuery(q);
     if (q.length < 2) { setManualResults([]); return; }
-    const customs = await getAllRecipes();
-    setManualResults(searchFood(q, customs));
+    const [customs, globals] = await Promise.all([getAllRecipes(), getGlobalFoods()]);
+    setManualResults(searchFood(q, [...customs, ...globals]));
   }
 
   async function handleManualAdd(food) {

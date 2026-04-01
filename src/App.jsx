@@ -3,11 +3,14 @@ import DailyLog from "./components/DailyLog";
 import History from "./components/History";
 import CustomRecipe from "./components/CustomRecipe";
 import Goals from "./components/Goals";
+import AdminPanel from "./components/AdminPanel";
 import LoginScreen from "./components/LoginScreen";
 import { onAuthChange, signOutUser } from "./firebase";
 import "./App.css";
 
-const TABS = [
+const ADMIN_EMAIL = "bhatmanas12@gmail.com";
+
+const BASE_TABS = [
   { id: "today",   label: "Today",   icon: "calendar_today" },
   { id: "history", label: "History", icon: "history" },
   { id: "recipes", label: "Foods",   icon: "restaurant_menu" },
@@ -17,6 +20,8 @@ const TABS = [
 export default function App() {
   const [tab, setTab]   = useState("today");
   const [user, setUser] = useState(undefined);
+  const isAdmin = user?.email === ADMIN_EMAIL;
+  const TABS = isAdmin ? [...BASE_TABS, { id: "admin", label: "Admin", icon: "shield" }] : BASE_TABS;
 
   useEffect(() => onAuthChange(setUser), []);
 
@@ -64,6 +69,7 @@ export default function App() {
         {tab === "history" && <History />}
         {tab === "recipes" && <CustomRecipe />}
         {tab === "goals"   && <Goals />}
+        {tab === "admin"   && <AdminPanel />}
       </main>
 
       {/* Bottom nav */}

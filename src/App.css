@@ -120,12 +120,31 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .edit-btn:hover { background: #fff3e0; }
 .delete-btn:hover { background: #ffebee; }
 
-/* Edit row */
-.edit-row { display: flex; gap: 6px; flex: 1; align-items: center; flex-wrap: wrap; }
-.edit-input { flex: 1; min-width: 100px; padding: 8px 10px; border: 1px solid var(--primary); border-radius: 8px; font-size: 13px; }
-.edit-voice-btn { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 8px; cursor: pointer; }
-.save-btn { background: #4CAF50; color: #fff; border: none; border-radius: 8px; padding: 8px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
-.cancel-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 16px; }
+/* Inline edit */
+.log-entry-editing { flex-direction: column; align-items: stretch; gap: 10px; background: #fff8f3; border: 1.5px solid var(--primary); }
+.entry-serving-edit { font-size: 11px; color: var(--muted); }
+
+.inline-edit-controls { display: flex; align-items: center; gap: 8px; }
+.stepper-row { display: flex; align-items: center; gap: 4px; }
+.stepper-btn {
+  width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--primary);
+  background: #fff; color: var(--primary); font-size: 20px; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  line-height: 1; transition: background 0.1s;
+}
+.stepper-btn:active { background: var(--primary); color: #fff; }
+.stepper-input {
+  width: 56px; text-align: center; font-size: 20px; font-weight: 800;
+  border: 2px solid var(--primary); border-radius: 8px; padding: 4px;
+  color: var(--text); background: #fff;
+}
+.stepper-unit { font-size: 13px; color: var(--muted); font-weight: 600; }
+.stepper-preview { font-size: 15px; font-weight: 700; color: var(--primary); margin-left: 4px; }
+
+.inline-edit-actions { display: flex; align-items: center; gap: 6px; }
+.edit-meal-select { flex: 1; padding: 8px 6px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; background: var(--card); }
+.save-btn { background: #4CAF50; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-size: 16px; font-weight: 700; cursor: pointer; }
+.cancel-btn { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 20px; padding: 4px 8px; }
 
 /* History */
 .date-tabs { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }

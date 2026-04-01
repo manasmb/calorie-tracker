@@ -3,7 +3,8 @@ import VoiceInput from "./VoiceInput";
 import MacroBar from "./MacroBar";
 import ExerciseSection from "./ExerciseSection";
 import { addLogEntry, getLogsByDate, deleteLogEntry, updateLogEntry, getGoals, getExercisesByDate, todayStr, getAllRecipes } from "../db";
-import { searchFood, calcMacros, parseAmountFromText, parseMealTypeFromText, getMealTypeByTime } from "../foodDatabase";
+// getAllRecipes used only for manual search
+import { searchFood, calcMacros, getMealTypeByTime } from "../foodDatabase";
 
 const MEALS = ["breakfast", "lunch", "snack", "dinner"];
 const MEAL_ICONS = { breakfast: "☀️", lunch: "🌤️", snack: "🍎", dinner: "🌙" };
@@ -17,7 +18,9 @@ export default function DailyLog() {
   const [pendingQty, setPendingQty] = useState(1);
   const [pendingGrams, setPendingGrams] = useState(null);
   const [editingId, setEditingId] = useState(null);
-  const [editText, setEditText] = useState("");
+  const [editQty, setEditQty]     = useState(1);
+  const [editGrams, setEditGrams] = useState(null);
+  const [editMeal, setEditMeal]   = useState("lunch");
   const [manualQuery, setManualQuery] = useState("");
   const [manualResults, setManualResults] = useState([]);
   const [manualMeal, setManualMeal] = useState(getMealTypeByTime());
@@ -67,37 +70,40 @@ export default function DailyLog() {
     load();
   }
 
-  async function applyEdit(entry) {
-    const text = editText;
-    const { quantity, grams } = parseAmountFromText(text);
-    const meal = parseMealTypeFromText(text) || entry.meal;
-    const customs = await getAllRecipes();
-    const results = searchFood(text, customs);
-    const food = results[0];
-
-    if (food) {
-      const macros = calcMacros(food, { quantity, grams });
-      await updateLogEntry({ ...entry, meal, foodId: food.id, foodName: food.name, serving: food.serving, quantity, grams, ...macros });
+  function openEdit(entry) {
+    setEditingId(entry.id);
+    setEditMeal(entry.meal);
+    if (entry.grams != null) {
+      setEditGrams(entry.grams);
+      setEditQty(1);
     } else {
-      // Only quantity/meal changed — recalculate proportionally from original
-      const origQty = entry.grams != null ? 1 : entry.quantity;
-      const origGrams = entry.grams;
-      const scale = grams != null
-        ? grams / (origGrams || entry.quantity * (entry.cal / (entry.cal / entry.quantity)))
-        : quantity / (origGrams != null ? 1 : entry.quantity);
-      await updateLogEntry({
-        ...entry, meal, quantity, grams,
-        cal:     Math.round(entry.cal     * scale),
-        protein: Math.round(entry.protein * scale * 10) / 10,
-        carbs:   Math.round(entry.carbs   * scale * 10) / 10,
-        fat:     Math.round(entry.fat     * scale * 10) / 10,
-        fiber:   Math.round((entry.fiber  || 0) * scale * 10) / 10,
-        sugar:   Math.round((entry.sugar  || 0) * scale * 10) / 10,
-        sodium:  Math.round((entry.sodium || 0) * scale),
-      });
+      setEditQty(entry.quantity);
+      setEditGrams(null);
     }
+  }
+
+  function cancelEdit() {
     setEditingId(null);
-    setEditText("");
+  }
+
+  async function applyEdit(entry) {
+    const scale = editGrams != null
+      ? editGrams / (entry.grams || 100)
+      : editQty   / (entry.quantity || 1);
+    await updateLogEntry({
+      ...entry,
+      meal:    editMeal,
+      quantity: editGrams != null ? entry.quantity : editQty,
+      grams:   editGrams,
+      cal:     Math.round(entry.cal     * scale),
+      protein: Math.round(entry.protein * scale * 10) / 10,
+      carbs:   Math.round(entry.carbs   * scale * 10) / 10,
+      fat:     Math.round(entry.fat     * scale * 10) / 10,
+      fiber:   Math.round((entry.fiber  || 0) * scale * 10) / 10,
+      sugar:   Math.round((entry.sugar  || 0) * scale * 10) / 10,
+      sodium:  Math.round((entry.sodium || 0) * scale),
+    });
+    setEditingId(null);
     load();
   }
 
@@ -212,22 +218,62 @@ export default function DailyLog() {
       {MEALS.map(meal => grouped[meal].length > 0 && (
         <div key={meal} className="meal-group">
           <h3 className="meal-title">{MEAL_ICONS[meal]} {meal.charAt(0).toUpperCase() + meal.slice(1)}</h3>
-          {grouped[meal].map(entry => (
+          {grouped[meal].map(entry => {
+            const isEditing = editingId === entry.id;
+            const editScale = isEditing
+              ? (editGrams != null ? editGrams / (entry.grams || 100) : editQty / (entry.quantity || 1))
+              : 1;
+            const previewCal = isEditing ? Math.round(entry.cal * editScale) : entry.cal;
+            const isGramBased = entry.grams != null;
+
+            return (
             <div key={entry.id} className="log-entry-wrap">
-              {editingId === entry.id ? (
-                <div className="log-entry">
-                  <div className="edit-row">
-                    <input className="edit-input" placeholder='e.g. "200 grams" or "2 rotis for breakfast"'
-                      value={editText} onChange={e => setEditText(e.target.value)} autoFocus />
-                    <button className="edit-voice-btn" title="Voice edit" onClick={() => {
-                      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-                      if (!SR) return;
-                      const r = new SR(); r.lang = "en-IN";
-                      r.onresult = ev => setEditText(ev.results[0][0].transcript);
-                      r.start();
-                    }}>🎤</button>
-                    <button className="save-btn" onClick={() => applyEdit(entry)}>Save</button>
-                    <button className="cancel-btn" onClick={() => setEditingId(null)}>✕</button>
+              {isEditing ? (
+                <div className="log-entry log-entry-editing">
+                  <div className="entry-info">
+                    <span className="entry-name">{entry.foodName}</span>
+                    <span className="entry-serving-edit">
+                      {isGramBased ? "grams" : entry.serving}
+                    </span>
+                  </div>
+
+                  <div className="inline-edit-controls">
+                    {isGramBased ? (
+                      <div className="stepper-row">
+                        <button className="stepper-btn" onClick={() => setEditGrams(g => Math.max(10, (g || 100) - 25))}>−</button>
+                        <input
+                          className="stepper-input"
+                          type="number" min="1"
+                          value={editGrams ?? ""}
+                          onChange={e => setEditGrams(parseFloat(e.target.value) || 0)}
+                          autoFocus
+                        />
+                        <button className="stepper-btn" onClick={() => setEditGrams(g => (g || 100) + 25)}>+</button>
+                        <span className="stepper-unit">g</span>
+                      </div>
+                    ) : (
+                      <div className="stepper-row">
+                        <button className="stepper-btn" onClick={() => setEditQty(q => Math.max(0.5, q - 0.5))}>−</button>
+                        <input
+                          className="stepper-input"
+                          type="number" min="0.5" step="0.5"
+                          value={editQty}
+                          onChange={e => setEditQty(parseFloat(e.target.value) || 0.5)}
+                          autoFocus
+                        />
+                        <button className="stepper-btn" onClick={() => setEditQty(q => q + 0.5)}>+</button>
+                        <span className="stepper-unit">×</span>
+                      </div>
+                    )}
+                    <span className="stepper-preview">{previewCal} kcal</span>
+                  </div>
+
+                  <div className="inline-edit-actions">
+                    <select className="edit-meal-select" value={editMeal} onChange={e => setEditMeal(e.target.value)}>
+                      {MEALS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                    <button className="save-btn" onClick={() => applyEdit(entry)}>✓</button>
+                    <button className="cancel-btn" onClick={cancelEdit}>✕</button>
                   </div>
                 </div>
               ) : (
@@ -241,7 +287,7 @@ export default function DailyLog() {
                     <span className="entry-detail">P:{entry.protein}g C:{entry.carbs}g F:{entry.fat}g</span>
                   </div>
                   <div className="entry-actions">
-                    <button className="edit-btn" onClick={ev => { ev.stopPropagation(); setEditingId(entry.id); setEditText(""); }}>✏️</button>
+                    <button className="edit-btn" onClick={ev => { ev.stopPropagation(); openEdit(entry); }}>✏️</button>
                     <button className="delete-btn" onClick={ev => { ev.stopPropagation(); handleDelete(entry.id); }}>🗑️</button>
                   </div>
                 </div>
@@ -259,7 +305,8 @@ export default function DailyLog() {
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       ))}
 

@@ -1,10 +1,11 @@
 import { openDB } from "idb";
+import { auth } from "./firebase.js";
 
-const DB_NAME = "calorie-tracker";
 const DB_VERSION = 2;
 
 function getDB() {
-  return openDB(DB_NAME, DB_VERSION, {
+  const uid = auth.currentUser?.uid ?? "local";
+  return openDB(`calorie-tracker-${uid}`, DB_VERSION, {
     upgrade(db, oldVersion) {
       if (oldVersion < 1) {
         const logs = db.createObjectStore("logs", { keyPath: "id", autoIncrement: true });

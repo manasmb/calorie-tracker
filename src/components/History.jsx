@@ -3,43 +3,45 @@ import { getAllDates, getLogsByDate, getGoals, formatDate } from "../db";
 import MacroBar from "./MacroBar";
 
 export default function History() {
-  const [dates, setDates] = useState([]);
+  const [dates,    setDates]    = useState([]);
   const [selected, setSelected] = useState(null);
-  const [entries, setEntries] = useState([]);
-  const [goals, setGoals] = useState({ calories: 2000, protein: 60, carbs: 250, fat: 65 });
+  const [entries,  setEntries]  = useState([]);
+  const [goals,    setGoals]    = useState({ calories:2000, protein:60, carbs:250, fat:65 });
 
   useEffect(() => {
     async function load() {
       const [d, g] = await Promise.all([getAllDates(), getGoals()]);
-      setDates(d);
-      setGoals(g);
+      setDates(d); setGoals(g);
       if (d.length > 0 && !selected) setSelected(d[0]);
     }
     load();
   }, []);
 
-  useEffect(() => {
-    if (!selected) return;
-    getLogsByDate(selected).then(setEntries);
-  }, [selected]);
+  useEffect(() => { if (selected) getLogsByDate(selected).then(setEntries); }, [selected]);
 
   const totals = entries.reduce(
-    (acc, e) => ({ cal: acc.cal + e.cal, protein: acc.protein + e.protein, carbs: acc.carbs + e.carbs, fat: acc.fat + e.fat }),
-    { cal: 0, protein: 0, carbs: 0, fat: 0 }
+    (acc, e) => ({ cal: acc.cal+e.cal, protein: acc.protein+e.protein, carbs: acc.carbs+e.carbs, fat: acc.fat+e.fat }),
+    { cal:0, protein:0, carbs:0, fat:0 }
   );
 
-  if (dates.length === 0) {
-    return <p className="empty-state">No history yet. Start logging food today!</p>;
-  }
+  if (dates.length === 0) return (
+    <div className="flex flex-col items-center justify-center py-20 text-on-surface-variant">
+      <span className="material-symbols-outlined text-[48px] mb-3">history</span>
+      <p className="text-sm">No history yet. Start logging food today!</p>
+    </div>
+  );
 
   return (
-    <div className="history">
-      <div className="date-tabs">
+    <div className="space-y-4">
+      {/* Date list */}
+      <div className="space-y-2">
         {dates.map(d => (
-          <button
-            key={d}
-            className={`date-tab ${selected === d ? "active" : ""}`}
-            onClick={() => setSelected(d)}
+          <button key={d} onClick={() => setSelected(d)}
+            className={`w-full text-left px-5 py-3.5 rounded-2xl font-semibold text-sm transition-all ${
+              selected === d
+                ? "bg-primary text-white shadow-md"
+                : "bg-surface-container-lowest text-on-surface hover:bg-surface-container-low"
+            }`}
           >
             {formatDate(d)}
           </button>
@@ -47,40 +49,37 @@ export default function History() {
       </div>
 
       {selected && (
-        <div className="history-detail">
-          <div className="summary-card">
-            <div className="summary-cal">
-              <span className="cal-num">{totals.cal}</span>
-              <span className="cal-label"> kcal</span>
+        <div className="space-y-4">
+          {/* Summary card */}
+          <div className="bg-surface-container-lowest rounded-4xl p-5 space-y-3">
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-4xl font-headline font-extrabold text-primary">{totals.cal}</span>
+              <span className="text-on-surface-variant text-sm">kcal</span>
             </div>
-            <MacroBar label="Protein" value={totals.protein} goal={goals.protein} unit="g" color="#4CAF50" />
-            <MacroBar label="Carbs"   value={totals.carbs}   goal={goals.carbs}   unit="g" color="#FF9800" />
-            <MacroBar label="Fat"     value={totals.fat}     goal={goals.fat}     unit="g" color="#F44336" />
+            <MacroBar label="Protein" value={totals.protein} goal={goals.protein} unit="g"  color="#006d37" />
+            <MacroBar label="Carbs"   value={totals.carbs}   goal={goals.carbs}   unit="g"  color="#2ecc71" />
+            <MacroBar label="Fat"     value={totals.fat}     goal={goals.fat}     unit="g"  color="#4bca78" />
           </div>
 
-          <div className="history-entries">
-            {["breakfast","lunch","snack","dinner"].map(meal => {
-              const mealEntries = entries.filter(e => e.meal === meal);
-              if (!mealEntries.length) return null;
-              return (
-                <div key={meal} className="meal-group">
-                  <h3 className="meal-title">{meal.charAt(0).toUpperCase() + meal.slice(1)}</h3>
-                  {mealEntries.map(e => (
-                    <div key={e.id} className="log-entry">
-                      <div className="entry-info">
-                        <span className="entry-name">{e.quantity > 1 ? `${e.quantity}x ` : ""}{e.foodName}</span>
-                        <span className="entry-serving">{e.serving}</span>
-                      </div>
-                      <div className="entry-macros">
-                        <span className="entry-cal">{e.cal} kcal</span>
-                        <span className="entry-detail">P:{e.protein}g C:{e.carbs}g F:{e.fat}g</span>
-                      </div>
+          {/* Meal groups */}
+          {["breakfast","lunch","snack","dinner"].map(meal => {
+            const mealEntries = entries.filter(e => e.meal === meal);
+            if (!mealEntries.length) return null;
+            return (
+              <div key={meal} className="bg-surface-container-lowest rounded-4xl p-5 space-y-2">
+                <p className="font-headline font-bold text-base text-on-surface capitalize mb-3">{meal}</p>
+                {mealEntries.map(e => (
+                  <div key={e.id} className="flex justify-between items-center bg-surface-container-low px-4 py-3 rounded-2xl">
+                    <div>
+                      <p className="text-sm font-semibold text-on-surface">{e.quantity > 1 ? `${e.quantity}× ` : ""}{e.foodName}</p>
+                      <p className="text-xs text-on-surface-variant">{e.serving}</p>
                     </div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
+                    <span className="text-sm font-bold text-primary">{e.cal}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

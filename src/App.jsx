@@ -8,25 +8,22 @@ import { onAuthChange, signOutUser } from "./firebase";
 import "./App.css";
 
 const TABS = [
-  { id: "today",   label: "Today",    icon: "🍽️" },
-  { id: "history", label: "History",  icon: "📅" },
-  { id: "recipes", label: "My Foods", icon: "📝" },
-  { id: "goals",   label: "Goals",    icon: "🎯" },
+  { id: "today",   label: "Today",   icon: "calendar_today" },
+  { id: "history", label: "History", icon: "history" },
+  { id: "recipes", label: "Foods",   icon: "restaurant_menu" },
+  { id: "goals",   label: "Goals",   icon: "ads_click" },
 ];
 
 export default function App() {
-  const [tab, setTab]     = useState("today");
-  const [user, setUser]   = useState(undefined); // undefined = loading, null = signed out
+  const [tab, setTab]   = useState("today");
+  const [user, setUser] = useState(undefined);
 
-  useEffect(() => {
-    return onAuthChange(setUser);
-  }, []);
+  useEffect(() => onAuthChange(setUser), []);
 
-  // Loading splash while Firebase resolves auth state
   if (user === undefined) {
     return (
-      <div className="auth-loading">
-        <span className="auth-loading-spinner" />
+      <div className="flex items-center justify-center min-h-dvh bg-background">
+        <div className="w-10 h-10 rounded-full border-4 border-surface-container-high border-t-primary animate-spin" />
       </div>
     );
   }
@@ -34,38 +31,63 @@ export default function App() {
   if (!user) return <LoginScreen />;
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="header-left">
-          <h1 className="app-title">CalTrack</h1>
-          <p className="app-subtitle">Indian Food Calorie Tracker</p>
-        </div>
-        <div className="header-user">
-          {user.photoURL && (
-            <img className="user-avatar" src={user.photoURL} alt={user.displayName} referrerPolicy="no-referrer" />
+    <div className="bg-background font-body text-on-surface pb-24">
+      {/* Header */}
+      <header className="fixed top-0 w-full z-50 bg-emerald-900/85 backdrop-blur-xl flex justify-between items-center px-5 h-16">
+        <div className="flex items-center gap-3">
+          {user.photoURL ? (
+            <img
+              src={user.photoURL}
+              alt={user.displayName}
+              referrerPolicy="no-referrer"
+              className="w-9 h-9 rounded-full ring-2 ring-emerald-400/40 object-cover"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-full bg-emerald-700 flex items-center justify-center text-white font-bold text-sm">
+              {user.displayName?.[0] ?? "U"}
+            </div>
           )}
-          <button className="logout-btn" onClick={signOutUser} title="Sign out">↩</button>
+          <span className="text-xl font-headline font-bold text-white tracking-tight">Vitality</span>
         </div>
+        <button
+          onClick={signOutUser}
+          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors text-emerald-300"
+          title="Sign out"
+        >
+          <span className="material-symbols-outlined text-[20px]">logout</span>
+        </button>
       </header>
 
-      <main className="app-main">
+      {/* Main */}
+      <main className="pt-20 px-4 max-w-2xl mx-auto space-y-5 pb-4">
         {tab === "today"   && <DailyLog />}
         {tab === "history" && <History />}
         {tab === "recipes" && <CustomRecipe />}
         {tab === "goals"   && <Goals />}
       </main>
 
-      <nav className="bottom-nav">
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            className={`nav-btn ${tab === t.id ? "active" : ""}`}
-            onClick={() => setTab(t.id)}
-          >
-            <span className="nav-icon">{t.icon}</span>
-            <span className="nav-label">{t.label}</span>
-          </button>
-        ))}
+      {/* Bottom nav */}
+      <nav className="fixed bottom-0 left-0 w-full z-50 rounded-t-3xl bg-white/85 backdrop-blur-xl shadow-[0_-4px_20px_rgba(0,0,0,0.06)] flex justify-around items-center px-2 pt-2 pb-5">
+        {TABS.map(t => {
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex flex-col items-center justify-center px-5 py-2 rounded-2xl transition-all duration-200 ${
+                active
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "text-zinc-400 hover:text-zinc-600"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[22px]"
+                style={{ fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}>
+                {t.icon}
+              </span>
+              <span className="text-[10px] uppercase tracking-widest mt-0.5 font-semibold">{t.label}</span>
+            </button>
+          );
+        })}
       </nav>
     </div>
   );

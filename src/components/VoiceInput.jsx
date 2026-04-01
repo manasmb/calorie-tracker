@@ -2,124 +2,91 @@ import { useState, useRef } from "react";
 import { searchFood, getMealTypeByTime, parseMealTypeFromText, parseAmountFromText } from "../foodDatabase";
 import { getAllRecipes } from "../db";
 
-// Speak a confirmation aloud using the browser's built-in TTS (free, no API needed)
 function speak(text) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang  = "en-IN";
-  utterance.rate  = 1.05;
-  utterance.pitch = 1.0;
-  window.speechSynthesis.speak(utterance);
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-IN"; u.rate = 1.05;
+  window.speechSynthesis.speak(u);
 }
 
 export default function VoiceInput({ onFoodDetected }) {
-  const [listening, setListening]   = useState(false);
-  const [transcript, setTranscript] = useState("");
-  const [status, setStatus]         = useState("Tap the mic to log food by voice");
+  const [listening,   setListening]   = useState(false);
+  const [transcript,  setTranscript]  = useState("");
+  const [status,      setStatus]      = useState("Tap the mic and speak");
   const recogRef = useRef(null);
 
   function startListening() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      setStatus("Speech recognition not supported. Please use Chrome.");
-      return;
-    }
-
+    if (!SR) { setStatus("Not supported — use Chrome."); return; }
     const recog = new SR();
-    recog.lang            = "en-IN";
-    recog.interimResults  = true;
-    recog.continuous      = false;
-    recogRef.current      = recog;
-    let finalText         = "";
-
-    recog.onstart = () => {
-      setListening(true);
-      setStatus("Listening… speak now");
-      setTranscript("");
-    };
-
-    recog.onresult = (e) => {
-      finalText = Array.from(e.results).map(r => r[0].transcript).join(" ");
-      setTranscript(finalText);
-    };
-
-    recog.onend = async () => {
-      setListening(false);
-      if (!finalText) { setStatus("Didn't catch that. Try again."); return; }
-      await processTranscript(finalText);
-    };
-
-    recog.onerror = (e) => {
-      setListening(false);
-      setStatus(e.error === "not-allowed"
-        ? "Microphone permission denied."
-        : `Error: ${e.error}. Try again.`);
-    };
-
+    recog.lang = "en-IN"; recog.interimResults = true; recog.continuous = false;
+    recogRef.current = recog;
+    let finalText = "";
+    recog.onstart  = () => { setListening(true); setStatus("Listening…"); setTranscript(""); };
+    recog.onresult = (e) => { finalText = Array.from(e.results).map(r => r[0].transcript).join(" "); setTranscript(finalText); };
+    recog.onend    = async () => { setListening(false); if (!finalText) { setStatus("Didn't catch that. Try again."); return; } await processTranscript(finalText); };
+    recog.onerror  = (e) => { setListening(false); setStatus(e.error === "not-allowed" ? "Mic permission denied." : `Error: ${e.error}`); };
     recog.start();
   }
 
-  function stopListening() {
-    recogRef.current?.stop();
-  }
+  function stopListening() { recogRef.current?.stop(); }
 
   async function processTranscript(text) {
-    setStatus(`Processing: "${text}"`);
-
-    const customs  = await getAllRecipes();
-    const meal     = parseMealTypeFromText(text) || getMealTypeByTime();
+    setStatus(`Processing…`);
+    const customs = await getAllRecipes();
+    const meal    = parseMealTypeFromText(text) || getMealTypeByTime();
     const { quantity, grams } = parseAmountFromText(text);
-
-    // Check custom recipes first (exact name match)
-    const customMatch = customs.find(r =>
-      text.toLowerCase().includes(r.name.toLowerCase())
-    );
+    const customMatch = customs.find(r => text.toLowerCase().includes(r.name.toLowerCase()));
     if (customMatch) {
-      onFoodDetected({ food: customMatch, quantity, grams, meal, transcript: text });
-      const msg = confirmMessage(customMatch.name, quantity, grams, meal);
-      setStatus(`✓ ${msg}`);
-      speak(msg);
-      return;
+      onFoodDetected({ food: customMatch, quantity, grams, meal });
+      const msg = confirmMsg(customMatch.name, quantity, grams, meal);
+      setStatus(`✓ ${msg}`); speak(msg); return;
     }
-
     const results = searchFood(text, customs);
     if (results.length === 1) {
-      onFoodDetected({ food: results[0], quantity, grams, meal, transcript: text });
-      const msg = confirmMessage(results[0].name, quantity, grams, meal);
-      setStatus(`✓ ${msg}`);
-      speak(msg);
+      onFoodDetected({ food: results[0], quantity, grams, meal });
+      const msg = confirmMsg(results[0].name, quantity, grams, meal);
+      setStatus(`✓ ${msg}`); speak(msg);
     } else if (results.length > 1) {
-      onFoodDetected({ food: null, candidates: results, quantity, grams, meal, transcript: text });
-      setStatus(`Found ${results.length} matches — pick one below`);
+      onFoodDetected({ food: null, candidates: results, quantity, grams, meal });
+      setStatus(`Found ${results.length} matches — pick one`);
     } else {
-      const msg = "Couldn't identify the food. Try searching manually.";
-      setStatus(msg);
+      setStatus("Couldn't find that food. Try searching manually.");
       speak("Sorry, I couldn't find that food.");
     }
   }
 
   return (
-    <div className="voice-input">
+    <div className="flex flex-col items-center gap-4">
       <button
-        className={`mic-btn ${listening ? "mic-active" : ""}`}
         onClick={listening ? stopListening : startListening}
-        aria-label="Voice input"
+        className={`w-20 h-20 rounded-full flex flex-col items-center justify-center gap-1 shadow-lg transition-all duration-200 ${
+          listening
+            ? "bg-red-600 animate-pulse scale-110"
+            : "bg-secondary-container hover:scale-105 active:scale-95"
+        }`}
       >
-        <span className="mic-icon">{listening ? "⏹" : "🎤"}</span>
-        <span className="mic-label">{listening ? "Stop" : "Speak"}</span>
+        <span className="material-symbols-outlined text-[28px] text-on-secondary-container"
+          style={{ fontVariationSettings: "'FILL' 1" }}>
+          {listening ? "stop" : "mic"}
+        </span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-on-secondary-container">
+          {listening ? "Stop" : "Speak"}
+        </span>
       </button>
-      {transcript && <p className="transcript">"{transcript}"</p>}
-      <p className="voice-status">{status}</p>
+
+      {transcript && (
+        <p className="text-sm italic text-on-surface-variant bg-surface-container-low px-4 py-2 rounded-full text-center">
+          "{transcript}"
+        </p>
+      )}
+      <p className="text-xs text-on-surface-variant text-center">{status}</p>
     </div>
   );
 }
 
-function confirmMessage(name, quantity, grams, meal) {
-  const amount = grams != null
-    ? `${grams} grams of ${name}`
-    : quantity !== 1
-      ? `${quantity} ${name}`
-      : name;
+function confirmMsg(name, quantity, grams, meal) {
+  const amount = grams != null ? `${grams} grams of ${name}` : quantity !== 1 ? `${quantity} ${name}` : name;
   return `Logged ${amount} for ${meal}.`;
 }

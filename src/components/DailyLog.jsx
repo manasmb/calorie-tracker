@@ -1,14 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 import VoiceInput from "./VoiceInput";
 import MacroBar from "./MacroBar";
-import { addLogEntry, getLogsByDate, deleteLogEntry, updateLogEntry, getGoals, todayStr, getAllRecipes } from "../db";
+import ExerciseSection from "./ExerciseSection";
+import { addLogEntry, getLogsByDate, deleteLogEntry, updateLogEntry, getGoals, getExercisesByDate, todayStr, getAllRecipes } from "../db";
 import { searchFood, calcMacros, parseAmountFromText, parseMealTypeFromText, getMealTypeByTime } from "../foodDatabase";
 
 const MEALS = ["breakfast", "lunch", "snack", "dinner"];
 const MEAL_ICONS = { breakfast: "☀️", lunch: "🌤️", snack: "🍎", dinner: "🌙" };
 
 export default function DailyLog() {
-  const [entries, setEntries] = useState([]);
+  const [entries, setEntries]   = useState([]);
+  const [exercises, setExercises] = useState([]);
   const [goals, setGoals] = useState({ calories: 2000, protein: 60, carbs: 250, fat: 65, fiber: 30, sugar: 50, sodium: 2300 });
   const [candidates, setCandidates] = useState(null);
   const [pendingMeal, setPendingMeal] = useState(null);
@@ -24,9 +26,14 @@ export default function DailyLog() {
   const [expandedId, setExpandedId] = useState(null);
 
   const load = useCallback(async () => {
-    const [data, g] = await Promise.all([getLogsByDate(todayStr()), getGoals()]);
+    const [data, g, exData] = await Promise.all([
+      getLogsByDate(todayStr()),
+      getGoals(),
+      getExercisesByDate(todayStr()),
+    ]);
     setEntries(data);
     setGoals(g);
+    setExercises(exData);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -117,6 +124,9 @@ export default function DailyLog() {
     { cal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0 }
   );
 
+  const totalBurned = exercises.reduce((sum, e) => sum + e.calBurned, 0);
+  const netCal = totals.cal - totalBurned;
+
   const grouped = MEALS.reduce((acc, m) => { acc[m] = entries.filter(e => e.meal === m); return acc; }, {});
 
   function servingLabel(e) {
@@ -130,13 +140,19 @@ export default function DailyLog() {
       {/* Summary */}
       <div className="summary-card">
         <div className="summary-cal">
-          <span className="cal-num">{totals.cal}</span>
+          <span className="cal-num">{netCal}</span>
           <span className="cal-label"> / {goals.calories} kcal</span>
         </div>
+        {totalBurned > 0 && (
+          <div className="cal-breakdown">
+            <span className="cal-eaten">🍽 {totals.cal} eaten</span>
+            <span className="cal-burned">🔥 −{totalBurned} burned</span>
+          </div>
+        )}
         <div className="cal-remaining">
-          {goals.calories - totals.cal > 0
-            ? `${goals.calories - totals.cal} kcal remaining`
-            : `${totals.cal - goals.calories} kcal over goal`}
+          {goals.calories - netCal > 0
+            ? `${goals.calories - netCal} kcal remaining`
+            : `${netCal - goals.calories} kcal over goal`}
         </div>
         <MacroBar label="Protein" value={totals.protein} goal={goals.protein} unit="g"  color="#4CAF50" />
         <MacroBar label="Carbs"   value={totals.carbs}   goal={goals.carbs}   unit="g"  color="#FF9800" />
@@ -188,6 +204,9 @@ export default function DailyLog() {
           </div>
         )}
       </div>
+
+      {/* Exercise */}
+      <ExerciseSection entries={exercises} onUpdate={load} />
 
       {/* Meal groups */}
       {MEALS.map(meal => grouped[meal].length > 0 && (

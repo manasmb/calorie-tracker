@@ -1,23 +1,20 @@
 import { openDB } from "idb";
 
 const DB_NAME = "calorie-tracker";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function getDB() {
   return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      // Food log entries
-      if (!db.objectStoreNames.contains("logs")) {
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) {
         const logs = db.createObjectStore("logs", { keyPath: "id", autoIncrement: true });
         logs.createIndex("date", "date");
-      }
-      // Custom recipes/foods
-      if (!db.objectStoreNames.contains("recipes")) {
         db.createObjectStore("recipes", { keyPath: "id" });
-      }
-      // User goals
-      if (!db.objectStoreNames.contains("goals")) {
         db.createObjectStore("goals", { keyPath: "key" });
+      }
+      if (oldVersion < 2) {
+        const ex = db.createObjectStore("exercises", { keyPath: "id", autoIncrement: true });
+        ex.createIndex("date", "date");
       }
     },
   });
@@ -77,6 +74,29 @@ export async function getGoals() {
   const db = await getDB();
   const g = await db.get("goals", "main");
   return g || { calories: 2000, protein: 60, carbs: 250, fat: 65, fiber: 30, sugar: 50, sodium: 2300 };
+}
+
+// ── Exercise log ─────────────────────────────────────────────
+export async function addExerciseEntry(entry) {
+  const db = await getDB();
+  return db.add("exercises", { ...entry, createdAt: Date.now() });
+}
+
+export async function getExercisesByDate(dateStr) {
+  const db = await getDB();
+  return db.getAllFromIndex("exercises", "date", dateStr);
+}
+
+export async function deleteExerciseEntry(id) {
+  const db = await getDB();
+  return db.delete("exercises", id);
+}
+
+export async function getAllExerciseDates() {
+  const db = await getDB();
+  const all = await db.getAll("exercises");
+  const dates = [...new Set(all.map(e => e.date))];
+  return dates.sort((a, b) => b.localeCompare(a));
 }
 
 // ── Helpers ──────────────────────────────────────────────────

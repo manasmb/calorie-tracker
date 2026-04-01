@@ -223,3 +223,43 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; b
 .goals-note { font-size: 11px; color: var(--muted); text-align: center; margin-bottom: 16px; font-style: italic; }
 
 .empty-state { text-align: center; color: var(--muted); font-size: 14px; padding: 40px 20px; }
+
+/* Calorie breakdown row */
+.cal-breakdown { display: flex; gap: 16px; margin-bottom: 4px; }
+.cal-eaten  { font-size: 13px; color: var(--primary); font-weight: 600; }
+.cal-burned { font-size: 13px; color: #2e7d32;        font-weight: 600; }
+
+/* Exercise section */
+.exercise-section { background: var(--card); border-radius: 16px; padding: 16px; margin-bottom: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+.exercise-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.exercise-custom-btn { background: none; border: 1px solid var(--border); border-radius: 99px; padding: 4px 12px; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.exercise-custom-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+.exercise-search-wrap { position: relative; }
+.exercise-search { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; background: var(--bg); }
+.exercise-search:focus { outline: none; border-color: var(--primary); }
+
+.exercise-results { position: absolute; top: 100%; left: 0; right: 0; background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); z-index: 20; overflow: hidden; margin-top: 4px; }
+.exercise-result-btn { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 10px 14px; border: none; border-bottom: 1px solid var(--border); background: var(--card); cursor: pointer; font-size: 13px; text-align: left; }
+.exercise-result-btn:last-child { border-bottom: none; }
+.exercise-result-btn:hover { background: #f1f8e9; }
+.exercise-result-meta { font-size: 11px; color: var(--muted); }
+
+.exercise-duration-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.exercise-cal-preview { font-size: 13px; color: #2e7d32; font-weight: 600; flex: 1; }
+
+.exercise-add-btn { background: #2e7d32; color: #fff; border: none; border-radius: 99px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.exercise-add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.exercise-custom-form { display: flex; flex-direction: column; gap: 8px; }
+.exercise-custom-form input { padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; }
+.exercise-form-row { display: flex; gap: 8px; }
+.exercise-form-row input { flex: 1; }
+
+.exercise-list { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.exercise-entry { display: flex; align-items: center; gap: 10px; background: #f1f8e9; border-radius: 10px; padding: 10px 12px; }
+.exercise-entry-info { flex: 1; }
+.exercise-entry-name { display: block; font-size: 14px; font-weight: 600; }
+.exercise-entry-meta { font-size: 11px; color: var(--muted); }
+.exercise-entry-cal { font-size: 15px; font-weight: 800; color: #2e7d32; white-space: nowrap; }
+.exercise-empty { font-size: 12px; color: var(--muted); text-align: center; padding: 8px 0 0; }

@@ -5,7 +5,6 @@ import { addLogEntry, getLogsByDate, deleteLogEntry, updateLogEntry, getGoals, g
 import { calcMacros, getMealTypeByTime } from "../foodDatabase";
 import { getGlobalFoods } from "../globalFoods";
 import { searchLocalFoods } from "../localFoodSearch";
-import { searchOpenFoodFacts } from "../openFoodFacts";
 
 const MEALS = ["breakfast", "lunch", "snack", "dinner"];
 const MEAL_ICONS   = { breakfast: "wb_sunny", lunch: "restaurant", snack: "nutrition", dinner: "nights_stay" };
@@ -140,16 +139,6 @@ export default function DailyLog() {
     ];
 
     setManualResults(merged);
-
-    // If local results are sparse, enrich with USDA in the background
-    if (merged.length < 5) {
-      const usdaResults = await searchOpenFoodFacts(q);
-      if (id !== searchId.current) return;
-      const mergedNames = new Set(merged.map(f => f.name.toLowerCase()));
-      const extra = usdaResults.filter(f => !mergedNames.has(f.name.toLowerCase()));
-      if (extra.length > 0) setManualResults([...merged, ...extra]);
-    }
-
     setSearching(false);
     setSearchDone(true);
   }

@@ -1,93 +1,53 @@
 /**
- * One-time script: fetches common foods from USDA FoodData Central
- * and writes public/foodDb.json for local Fuse.js search.
+ * Builds public/foodDb.json — a comprehensive local food database.
+ *
+ * Sources:
+ *   1. USDA FoodData Central — SR Legacy + Foundation foods (~9,800 items)
+ *      Uses paginated /foods/list endpoint to get EVERYTHING, not just 25/query.
+ *   2. Open Food Facts — Indian branded & regional products (no key required)
  *
  * Usage:
  *   node scripts/buildFoodDb.mjs
- *   node scripts/buildFoodDb.mjs YOUR_USDA_API_KEY
+ *   node scripts/buildFoodDb.mjs YOUR_USDA_KEY   (faster, higher rate limit)
  *
- * Get a free key (3600 req/hr) at https://fdc.nal.usda.gov/api-guide.html
+ * Get a free USDA key at https://fdc.nal.usda.gov/api-guide.html
  */
 
 import { writeFileSync, readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
-// Load .env.local if present
-try {
-  const env = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../.env.local"), "utf8");
-  for (const line of env.split("\n")) {
-    const [k, ...rest] = line.split("=");
-    if (k && rest.length) process.env[k.trim()] = rest.join("=").trim();
-  }
-} catch { /* no .env.local, that's fine */ }
-
 const __dir = dirname(fileURLToPath(import.meta.url));
 const OUT   = join(__dir, "../public/foodDb.json");
 
-const API_KEY = process.argv[2] || process.env.VITE_USDA_API_KEY || "DEMO_KEY";
-const BASE    = "https://api.nal.usda.gov/fdc/v1/foods/search";
-const PAGE    = 25;
+// Load .env.local if present
+try {
+  const env = readFileSync(join(__dir, "../.env.local"), "utf8");
+  for (const line of env.split("\n")) {
+    const eq = line.indexOf("=");
+    if (eq > 0) process.env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+  }
+} catch { /* no .env.local */ }
 
-// Generic categories (SR Legacy + Foundation — no brand name)
-const GENERIC_QUERIES = [
-  // Proteins
-  "chicken breast", "chicken thigh", "ground beef", "beef steak",
-  "pork chop", "bacon", "salmon", "tuna", "shrimp", "egg",
-  "tofu", "paneer", "turkey",
-  // Grains & bread
-  "white rice", "brown rice", "basmati rice", "oats", "bread",
-  "whole wheat bread", "pasta", "noodles", "corn", "quinoa",
-  // Dairy
-  "milk", "yogurt", "curd", "cheese", "butter", "ghee", "cream",
-  "cottage cheese", "whey protein",
-  // Fruits
-  "apple", "banana", "mango", "orange", "grapes", "watermelon",
-  "strawberry", "pineapple", "papaya", "guava",
-  // Vegetables
-  "broccoli", "spinach", "carrot", "tomato", "potato", "onion",
-  "cauliflower", "cabbage", "peas", "corn", "mushroom", "cucumber",
-  "capsicum", "green beans", "sweet potato",
-  // Legumes
-  "lentils", "chickpeas", "kidney beans", "black beans", "moong dal",
-  "chana dal", "toor dal",
-  // Nuts & fats
-  "almonds", "peanuts", "cashews", "walnuts", "peanut butter",
-  "olive oil", "coconut oil",
-  // Snacks & beverages
-  "chocolate", "biscuit", "chips", "orange juice", "coffee", "tea",
-  // Common meals
-  "pizza", "burger", "sandwich", "soup", "salad",
-];
+const API_KEY  = process.argv[2] || process.env.VITE_USDA_API_KEY || "DEMO_KEY";
+const USDA     = "https://api.nal.usda.gov/fdc/v1/foods/list";
+const OFF_BASE = "https://world.openfoodfacts.org/cgi/search.pl";
+const PAGE_SIZE = 200; // USDA max
 
-// Branded queries — searched against the Branded dataType
-const BRANDED_QUERIES = [
-  // Indian dairy brands
-  "Nanak", "Nandini", "Amul", "Mother Dairy", "Britannia", "Nestle",
-  "Verka", "Parag", "Gowardhan", "Mahananda",
-  // Indian snack / staple brands
-  "Haldirams", "Bikaji", "Parle", "Sunfeast", "Maggi", "Patanjali",
-  "MDH", "Everest", "Catch", "Tata", "Aashirvaad", "Fortune",
-  "Saffola", "Dabur", "Kissan",
-  // International brands common in India
-  "Kellogs", "Quaker", "Tropicana", "Lay's", "Kurkure",
-];
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
-}
+// ── USDA nutrient helpers ────────────────────────────────────────────────────
 
 function getNutrient(nutrients, name) {
-  return nutrients?.find(n => n.nutrientName === name)?.value ?? 0;
+  return nutrients?.find(n => n.name === name)?.amount ?? 0;
 }
 
-function normalize(food) {
+function normalizeUSDA(food) {
   const n = food.foodNutrients ?? [];
   const cal = getNutrient(n, "Energy");
   if (!cal) return null;
 
-  const nameParts = [food.brandOwner, food.description].filter(s => s?.trim());
-  const name = nameParts.join(" – ").trim();
+  const name = food.description?.trim();
   if (!name) return null;
 
   const gramsPerServing = food.servingSize || 100;
@@ -109,57 +69,170 @@ function normalize(food) {
   };
 }
 
-async function fetchQuery(query, dataType) {
-  const params = new URLSearchParams({
-    query,
-    api_key:  API_KEY,
-    pageSize: PAGE,
-    dataType,
-  });
-  const res = await fetch(`${BASE}?${params}`);
-  if (!res.ok) {
-    console.warn(`  [skip] ${query} → HTTP ${res.status}`);
-    return [];
-  }
-  const data = await res.json();
-  return (data.foods ?? []).map(normalize).filter(Boolean);
-}
+// ── Fetch ALL USDA SR Legacy + Foundation via pagination ─────────────────────
 
-async function runBatch(label, queries, dataType, seen, foods) {
-  console.log(`\n── ${label} ──`);
-  const delay = API_KEY === "DEMO_KEY" ? 1500 : 250;
-  for (let i = 0; i < queries.length; i++) {
-    const q = queries[i];
-    process.stdout.write(`[${i + 1}/${queries.length}] ${q}… `);
+async function fetchAllUSDA(dataType) {
+  const foods = [];
+  let page = 1;
+  const delay = API_KEY === "DEMO_KEY" ? 2000 : 300;
+
+  while (true) {
+    const params = new URLSearchParams({
+      api_key:  API_KEY,
+      dataType,
+      pageSize: PAGE_SIZE,
+      pageNumber: page,
+    });
+
+    let data;
     try {
-      const results = await fetchQuery(q, dataType);
-      let added = 0;
-      for (const f of results) {
-        if (!seen.has(f.id)) {
-          seen.add(f.id);
-          foods.push(f);
-          added++;
-        }
+      const res = await fetch(`${USDA}?${params}`);
+      if (res.status === 429) {
+        console.log("    Rate limited, waiting 60s…");
+        await sleep(60000);
+        continue;
       }
-      console.log(`+${added} (total: ${foods.length})`);
+      if (!res.ok) { console.warn(`    HTTP ${res.status}, skipping page ${page}`); break; }
+      data = await res.json();
     } catch (e) {
-      console.log(`error: ${e.message}`);
+      console.warn(`    Fetch error on page ${page}: ${e.message}`);
+      break;
     }
+
+    if (!Array.isArray(data) || data.length === 0) break;
+
+    for (const f of data) {
+      const norm = normalizeUSDA(f);
+      if (norm) foods.push(norm);
+    }
+
+    process.stdout.write(`\r    Page ${page} — ${foods.length} foods so far…`);
+    if (data.length < PAGE_SIZE) break; // last page
+    page++;
     await sleep(delay);
   }
+
+  console.log(); // newline after \r
+  return foods;
 }
 
-async function main() {
-  console.log(`Building food DB with key: ${API_KEY === "DEMO_KEY" ? "DEMO_KEY (slow, ~25 req/hr)" : "custom key"}`);
+// ── Open Food Facts — Indian queries ────────────────────────────────────────
 
+const OFF_QUERIES = [
+  // Dairy brands
+  "Amul", "Nanak", "Nandini", "Mother Dairy", "Britannia", "Verka",
+  "Gowardhan", "Parag", "Mahananda",
+  // Snacks & staples
+  "Haldirams", "Bikaji", "Parle", "Sunfeast", "Maggi", "Patanjali",
+  "MDH spices", "Everest spices", "Tata salt", "Aashirvaad atta",
+  "Fortune oil", "Saffola", "Dabur", "Kissan",
+  // Generic Indian
+  "ghee", "paneer", "dal", "idli", "dosa", "roti", "biryani",
+  "chana masala", "palak paneer", "butter chicken",
+  // International common in India
+  "Kelloggs", "Quaker oats", "Tropicana", "Lay's India", "Kurkure",
+  "Britannia biscuit", "Good Day", "Marie Gold", "Hide and Seek",
+];
+
+function normalizeOFF(product) {
+  const cal = product.nutriments?.["energy-kcal_100g"]
+           ?? product.nutriments?.["energy-kcal"]
+           ?? (product.nutriments?.energy_100g / 4.184);
+  if (!cal || cal < 1) return null;
+
+  const name = (product.product_name || product.product_name_en || "").trim();
+  if (!name || name.length < 2) return null;
+
+  const brand  = product.brands?.split(",")[0]?.trim();
+  const fullName = brand && !name.toLowerCase().includes(brand.toLowerCase())
+    ? `${brand} – ${name}`
+    : name;
+
+  const serving = product.serving_size || "100g";
+  const gramsPerServing = parseFloat(product.serving_quantity) || 100;
+
+  return {
+    id:             "off_" + (product.id || product.code),
+    name:            fullName,
+    serving,
+    gramsPerServing,
+    cal:     Math.round(cal * gramsPerServing / 100),
+    protein: Math.round((product.nutriments?.proteins_100g ?? 0) * gramsPerServing / 100 * 10) / 10,
+    carbs:   Math.round((product.nutriments?.carbohydrates_100g ?? 0) * gramsPerServing / 100 * 10) / 10,
+    fat:     Math.round((product.nutriments?.fat_100g ?? 0) * gramsPerServing / 100 * 10) / 10,
+    fiber:   Math.round((product.nutriments?.fiber_100g ?? 0) * gramsPerServing / 100 * 10) / 10,
+    sugar:   Math.round((product.nutriments?.sugars_100g ?? 0) * gramsPerServing / 100 * 10) / 10,
+    sodium:  Math.round((product.nutriments?.sodium_100g ?? 0) * gramsPerServing / 100 * 1000),
+    source:  "off",
+  };
+}
+
+async function fetchOFF(query) {
+  const params = new URLSearchParams({
+    search_terms: query,
+    json:         "1",
+    page_size:    "50",
+    fields:       "id,code,product_name,product_name_en,brands,serving_size,serving_quantity,nutriments",
+    // prefer Indian products
+    tagtype_0: "countries",
+    tag_contains_0: "contains",
+    tag_0: "india",
+  });
+
+  try {
+    const res = await fetch(`${OFF_BASE}?${params}`, {
+      headers: { "User-Agent": "VitalityCalorieTracker/1.0 (food-database-builder)" },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.products ?? []).map(normalizeOFF).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
+
+async function main() {
   const seen  = new Set();
   const foods = [];
 
-  await runBatch("Generic foods (SR Legacy + Foundation)", GENERIC_QUERIES, "SR Legacy,Foundation", seen, foods);
-  await runBatch("Branded foods", BRANDED_QUERIES, "Branded", seen, foods);
+  function addFoods(newFoods) {
+    let added = 0;
+    for (const f of newFoods) {
+      if (!seen.has(f.id)) { seen.add(f.id); foods.push(f); added++; }
+    }
+    return added;
+  }
+
+  console.log(`USDA key: ${API_KEY === "DEMO_KEY" ? "DEMO_KEY (very slow — get a free key!)" : "custom ✓"}`);
+
+  // ── 1. USDA SR Legacy (generic, ~8600 foods) ──────────────────────────────
+  console.log("\n[1/3] USDA SR Legacy (~8,600 foods, paginated)…");
+  const srFoods = await fetchAllUSDA("SR Legacy");
+  const srAdded = addFoods(srFoods);
+  console.log(`      → ${srAdded} foods added (total: ${foods.length})`);
+
+  // ── 2. USDA Foundation (~1,200 foods) ─────────────────────────────────────
+  console.log("\n[2/3] USDA Foundation Foods (~1,200 foods)…");
+  const foundFoods = await fetchAllUSDA("Foundation");
+  const foundAdded = addFoods(foundFoods);
+  console.log(`      → ${foundAdded} new foods added (total: ${foods.length})`);
+
+  // ── 3. Open Food Facts — Indian queries ───────────────────────────────────
+  console.log(`\n[3/3] Open Food Facts — ${OFF_QUERIES.length} Indian queries…`);
+  for (let i = 0; i < OFF_QUERIES.length; i++) {
+    const q = OFF_QUERIES[i];
+    process.stdout.write(`  [${i + 1}/${OFF_QUERIES.length}] ${q}… `);
+    const results = await fetchOFF(q);
+    const added   = addFoods(results);
+    console.log(`+${added} (total: ${foods.length})`);
+    await sleep(500); // OFF is permissive but be polite
+  }
 
   writeFileSync(OUT, JSON.stringify(foods, null, 0));
-  console.log(`\nDone. Wrote ${foods.length} foods to public/foodDb.json`);
+  const kb = Math.round(readFileSync(OUT).length / 1024);
+  console.log(`\n✓ Done. ${foods.length} foods → public/foodDb.json (${kb} KB)`);
 }
 
-main().catch(console.error);
+main().catch(e => { console.error(e); process.exit(1); });

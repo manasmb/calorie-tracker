@@ -58,46 +58,39 @@ export default function LabelScanner({ onParsed }) {
   }
 
   async function scan(base64, mediaType) {
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      setError("Add VITE_ANTHROPIC_API_KEY to your .env.local file.");
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey || apiKey === "your_gemini_api_key_here") {
+      setError("Add your free Gemini API key as VITE_GEMINI_API_KEY in .env.local — get one free at aistudio.google.com");
       return;
     }
 
     setScanning(true);
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key":                              apiKey,
-          "anthropic-version":                      "2023-06-01",
-          "content-type":                           "application/json",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-        body: JSON.stringify({
-          model:      "claude-haiku-4-5-20251001",
-          max_tokens: 512,
-          messages: [{
-            role: "user",
-            content: [
-              {
-                type:   "image",
-                source: { type: "base64", media_type: mediaType, data: base64 },
-              },
-              { type: "text", text: PROMPT },
-            ],
-          }],
-        }),
-      });
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { inline_data: { mime_type: mediaType, data: base64 } },
+                { text: PROMPT },
+              ],
+            }],
+            generationConfig: { temperature: 0, maxOutputTokens: 512 },
+          }),
+        }
+      );
 
       if (!res.ok) {
         const body = await res.text();
         throw new Error(`API ${res.status}: ${body.slice(0, 120)}`);
       }
 
-      const data   = await res.json();
-      const text   = data.content?.[0]?.text ?? "";
-      const match  = text.match(/\{[\s\S]*\}/);
+      const data  = await res.json();
+      const text  = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+      const match = text.match(/\{[\s\S]*\}/);
       if (!match) throw new Error("Could not find JSON in response. Try a clearer photo.");
 
       const parsed = JSON.parse(match[0]);

@@ -105,18 +105,19 @@ export default function DailyLog() {
   async function handleManualSearch(q) {
     setManualQuery(q);
     if (q.length < 2) { setManualResults([]); setSearching(false); return; }
-    setSearching(true);
-    const [customs, globals, offResults] = await Promise.all([
-      getAllRecipes(),
-      getGlobalFoods(),
-      searchOpenFoodFacts(q),
-    ]);
+
+    // Show local results immediately
+    const [customs, globals] = await Promise.all([getAllRecipes(), getGlobalFoods()]);
     const local = searchFood(q, [...customs, ...globals]);
-    // Merge: local first, then OFF results not already covered by name
-    const localNames = new Set(local.map(f => f.name.toLowerCase()));
-    const merged = [...local, ...offResults.filter(f => !localNames.has(f.name.toLowerCase()))];
-    setManualResults(merged);
+    setManualResults(local);
+
+    // Then fetch OFF in background and append
+    setSearching(true);
+    const offResults = await searchOpenFoodFacts(q);
     setSearching(false);
+    const localNames = new Set(local.map(f => f.name.toLowerCase()));
+    const extra = offResults.filter(f => !localNames.has(f.name.toLowerCase()));
+    setManualResults([...local, ...extra]);
   }
 
   async function handleManualAdd(food) {
@@ -307,13 +308,7 @@ export default function DailyLog() {
             />
             <span className="text-xs text-on-surface-variant font-semibold">g</span>
           </div>
-          {searching && (
-            <div className="flex items-center gap-2 px-2 py-1 text-xs text-on-surface-variant">
-              <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-              Searching global database…
-            </div>
-          )}
-          {!searching && manualResults.length > 0 && (
+          {(manualResults.length > 0 || searching) && (
             <div className="rounded-2xl overflow-hidden divide-y divide-outline-variant/30">
               {manualResults.map(f => (
                 <button key={f.id} onClick={() => handleManualAdd(f)}
@@ -330,6 +325,12 @@ export default function DailyLog() {
                   <span className="text-sm font-bold text-primary ml-3 flex-shrink-0">{f.cal}</span>
                 </button>
               ))}
+              {searching && (
+                <div className="flex items-center gap-2 px-4 py-3 bg-surface-container-low text-xs text-on-surface-variant">
+                  <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin flex-shrink-0" />
+                  Searching 3M+ foods…
+                </div>
+              )}
             </div>
           )}
         </div>

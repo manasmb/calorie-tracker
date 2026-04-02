@@ -84,8 +84,10 @@ export default function LabelScanner({ onParsed }) {
       );
 
       if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`API ${res.status}: ${body.slice(0, 120)}`);
+        const body = await res.json().catch(() => ({}));
+        const msg  = body?.error?.message ?? JSON.stringify(body).slice(0, 150);
+        if (res.status === 429) throw new Error(`Rate limit: ${msg}. Wait a minute and try again, or create a new API key at aistudio.google.com.`);
+        throw new Error(`API ${res.status}: ${msg}`);
       }
 
       const data  = await res.json();

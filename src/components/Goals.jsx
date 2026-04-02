@@ -122,8 +122,12 @@ export default function Goals() {
     setTimeout(() => setSaved(false), 2000);
   }
 
-  function applyRecommended() {
-    setGoals({ calories: rec.calories, protein: rec.protein, carbs: rec.carbs, fat: rec.fat, fiber: rec.fiber, sugar: rec.sugar, sodium: rec.sodium });
+  async function applyRecommended() {
+    const g = { calories: rec.calories, protein: rec.protein, carbs: rec.carbs, fat: rec.fat, fiber: rec.fiber, sugar: rec.sugar, sodium: rec.sodium };
+    setGoals(g);
+    await saveGoals({ ...profile, ...g });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   }
 
   const profileReady = profile.currentWeight && profile.targetWeight && profile.height && profile.age;

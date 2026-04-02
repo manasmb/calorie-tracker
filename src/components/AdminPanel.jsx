@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getGlobalFoods, addGlobalFood, deleteGlobalFood } from "../globalFoods";
+import LabelScanner from "./LabelScanner";
 
 const EMPTY = {
   name: "", serving: "1 serving", gramsPerServing: "",
@@ -19,11 +20,29 @@ const FIELDS = [
 ];
 
 export default function AdminPanel() {
-  const [foods,   setFoods]   = useState([]);
-  const [form,    setForm]    = useState(EMPTY);
-  const [loading, setLoading] = useState(false);
-  const [saved,   setSaved]   = useState(false);
-  const [search,  setSearch]  = useState("");
+  const [foods,       setFoods]       = useState([]);
+  const [form,        setForm]        = useState(EMPTY);
+  const [loading,     setLoading]     = useState(false);
+  const [saved,       setSaved]       = useState(false);
+  const [search,      setSearch]      = useState("");
+  const [showScanner, setShowScanner] = useState(false);
+
+  function handleParsed(parsed) {
+    setForm(f => ({
+      ...f,
+      serving:        parsed.servingSize        ?? f.serving,
+      gramsPerServing: parsed.gramsPerServing   != null ? String(parsed.gramsPerServing) : f.gramsPerServing,
+      cal:            parsed.cal                != null ? String(Math.round(parsed.cal))     : f.cal,
+      protein:        parsed.protein            != null ? String(parsed.protein)             : f.protein,
+      carbs:          parsed.carbs              != null ? String(parsed.carbs)               : f.carbs,
+      fat:            parsed.fat                != null ? String(parsed.fat)                 : f.fat,
+      fiber:          parsed.fiber              != null ? String(parsed.fiber)               : f.fiber,
+      sugar:          parsed.sugar              != null ? String(parsed.sugar)               : f.sugar,
+      sodium:         parsed.sodium             != null ? String(Math.round(parsed.sodium))  : f.sodium,
+    }));
+    setShowScanner(false);
+    setSaved(false);
+  }
 
   async function load() {
     const data = await getGlobalFoods();
@@ -86,9 +105,29 @@ export default function AdminPanel() {
         </div>
       </div>
 
+      {/* Label scanner */}
+      <button
+        onClick={() => setShowScanner(v => !v)}
+        className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-3xl text-sm font-bold transition-all ${
+          showScanner
+            ? "bg-primary/10 text-primary"
+            : "bg-primary text-white hover:bg-emerald-800 active:scale-95"
+        }`}
+      >
+        <span className="material-symbols-outlined text-[20px]"
+          style={{ fontVariationSettings: "'FILL' 1" }}>
+          {showScanner ? "keyboard_arrow_up" : "document_scanner"}
+        </span>
+        {showScanner ? "Hide Scanner" : "Scan Nutrition Label"}
+      </button>
+
+      {showScanner && <LabelScanner onParsed={handleParsed} />}
+
       {/* Add food form */}
       <div className="bg-surface-container-lowest rounded-4xl p-5 space-y-3">
-        <p className="font-headline font-semibold text-on-surface text-base mb-1">Add New Food</p>
+        <p className="font-headline font-semibold text-on-surface text-base mb-1">
+          {showScanner ? "Review & Complete" : "Add New Food"}
+        </p>
 
         <input
           name="name" placeholder="Food name *" value={form.name} onChange={handleChange}

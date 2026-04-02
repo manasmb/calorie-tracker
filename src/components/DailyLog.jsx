@@ -188,13 +188,20 @@ export default function DailyLog() {
             </div>
           </div>
 
-          {/* Eaten / Burned row */}
-          {totalBurned > 0 && (
-            <div className="flex gap-4 mt-2 text-xs font-semibold">
-              <span className="text-on-surface-variant">🍽 {rt.cal} eaten</span>
-              <span className="text-primary">🔥 −{totalBurned} burned</span>
-            </div>
-          )}
+          {/* Goal / Consumed / Remaining row */}
+          <div className="mt-3 flex items-stretch gap-px bg-outline-variant/20 rounded-2xl overflow-hidden w-full max-w-xs">
+            {[
+              { label: "Goal",     value: goals.calories, color: "text-on-surface" },
+              { label: "Consumed", value: rt.cal,         color: "text-primary" },
+              ...(totalBurned > 0 ? [{ label: "Burned", value: totalBurned, color: "text-orange-500" }] : []),
+              { label: overGoal ? "Over" : "Left", value: Math.abs(remaining), color: overGoal ? "text-error" : "text-on-surface-variant" },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="flex-1 flex flex-col items-center py-3 bg-surface-container-low">
+                <span className={`text-base font-headline font-bold ${color}`}>{value}</span>
+                <span className="text-[9px] uppercase tracking-wider text-on-surface-variant mt-0.5">{label}</span>
+              </div>
+            ))}
+          </div>
 
           {/* Macro mini-bars */}
           <div className="mt-6 grid grid-cols-3 gap-8 w-full max-w-xs">

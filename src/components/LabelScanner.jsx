@@ -33,6 +33,25 @@ export default function LabelScanner({ onParsed }) {
   const [done,     setDone]     = useState(false);
   const inputRef = useRef(null);
 
+  // Resize image to max 1024px on longest side before sending —
+  // phone cameras produce 4–12MB images which burns quota fast.
+  function resizeImage(dataUrl, maxPx = 1024) {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+        const w = Math.round(img.width  * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width  = w;
+        canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.85));
+      };
+      img.src = dataUrl;
+    });
+  }
+
   async function handleFile(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -40,20 +59,19 @@ export default function LabelScanner({ onParsed }) {
     setError(null);
     setDone(false);
 
-    // Show preview
-    const dataUrl = await new Promise(res => {
+    const raw = await new Promise(res => {
       const reader = new FileReader();
       reader.onload = ev => res(ev.target.result);
       reader.readAsDataURL(file);
     });
+
+    // Resize before preview and before sending
+    const dataUrl = await resizeImage(raw);
     setPreview(dataUrl);
 
-    // Extract base64 payload and media type
-    const [header, base64] = dataUrl.split(",");
-    const mediaType = header.match(/:(.*?);/)?.[1] ?? "image/jpeg";
+    const [, base64] = dataUrl.split(",");
+    await scan(base64, "image/jpeg");
 
-    await scan(base64, mediaType);
-    // Reset input so same file can be re-selected
     if (inputRef.current) inputRef.current.value = "";
   }
 

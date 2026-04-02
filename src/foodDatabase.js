@@ -456,16 +456,86 @@ export function parseMealTypeFromText(text) {
 
 export function parseAmountFromText(text) {
   const t = text.toLowerCase();
-  const gramMatch = t.match(/(\d+(?:\.\d+)?)\s*(?:grams?|gm|g)\b/);
-  if (gramMatch) return { quantity: 1, grams: parseFloat(gramMatch[1]) };
-  const mlMatch = t.match(/(\d+(?:\.\d+)?)\s*(?:ml|milliliter)/);
-  if (mlMatch) return { quantity: 1, grams: parseFloat(mlMatch[1]) };
-  if (t.includes("half") || t.includes("0.5")) return { quantity: 0.5, grams: null };
-  if (t.includes("quarter") || t.includes("1/4")) return { quantity: 0.25, grams: null };
-  const numMatch = t.match(/\b([2-9]|10)\b/);
-  if (numMatch) return { quantity: parseInt(numMatch[1]), grams: null };
-  if (t.includes("two"))   return { quantity: 2, grams: null };
-  if (t.includes("three")) return { quantity: 3, grams: null };
-  if (t.includes("four"))  return { quantity: 4, grams: null };
-  return { quantity: 1, grams: null };
+
+  // ── 1. Extract numeric value from text ───────────────────────────
+  let amount = 1;
+
+  // Written fraction: "1/2", "3/4", "1 / 2"
+  const fracMatch = t.match(/(\d+)\s*\/\s*(\d+)/);
+  if (fracMatch) {
+    amount = parseInt(fracMatch[1]) / parseInt(fracMatch[2]);
+  } else {
+    // Decimal or integer
+    const numMatch = t.match(/(\d+(?:\.\d+)?)/);
+    if (numMatch) {
+      amount = parseFloat(numMatch[1]);
+    } else {
+      // Word numbers (no digits found)
+      const wordMap = {
+        "a half": 0.5, "half": 0.5, "quarter": 0.25,
+        "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+        "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+      };
+      for (const [word, val] of Object.entries(wordMap)) {
+        if (t.includes(word)) { amount = val; break; }
+      }
+    }
+  }
+
+  // "half kg", "half cup" — word modifier even when digits may be absent
+  if (t.includes("half") && !fracMatch && !/\d/.test(t)) amount = 0.5;
+  if (t.includes("quarter") && !fracMatch && !/\d/.test(t)) amount = 0.25;
+
+  // ── 2. Match unit and convert to { grams } or { quantity } ───────
+
+  // Kilograms → grams
+  if (/\b(?:kg|kilo(?:gram)?s?)\b/.test(t))
+    return { quantity: 1, grams: Math.round(amount * 1000) };
+
+  // Grams (g / gm / gram / grams)
+  if (/(\d[\d.]*)\s*(?:grams?|gm|g)\b/.test(t)) {
+    const m = t.match(/(\d+(?:\.\d+)?)\s*(?:grams?|gm|g)\b/);
+    return { quantity: 1, grams: parseFloat(m[1]) };
+  }
+
+  // Liters → grams (1L ≈ 1000g)
+  if (/\b(?:litre?s?|ltrs?|liter?s?)\b/.test(t))
+    return { quantity: 1, grams: Math.round(amount * 1000) };
+
+  // Milliliters → grams (1ml ≈ 1g)
+  if (/\b(?:ml|millilitre?s?|milliliter?s?)\b/.test(t)) {
+    const m = t.match(/(\d+(?:\.\d+)?)\s*(?:ml|millilitre?s?|milliliter?s?)/);
+    return { quantity: 1, grams: parseFloat(m ? m[1] : amount) };
+  }
+
+  // Cup → ~240g
+  if (/\bcups?\b/.test(t))
+    return { quantity: 1, grams: Math.round(amount * 240) };
+
+  // Glass → ~250ml
+  if (/\bglasse?s?\b/.test(t))
+    return { quantity: 1, grams: Math.round(amount * 250) };
+
+  // Tablespoon (15g)
+  if (/\b(?:tbsp|tablespoons?)\b/.test(t))
+    return { quantity: 1, grams: Math.round(amount * 15) };
+
+  // Teaspoon (5g)
+  if (/\b(?:tsp|teaspoons?)\b/.test(t))
+    return { quantity: 1, grams: Math.round(amount * 5) };
+
+  // Handful (~30g — nuts, seeds, snacks)
+  if (/\bhands?ful(?:s)?\b/.test(t))
+    return { quantity: 1, grams: Math.round(amount * 30) };
+
+  // Katori (~150g — common Indian small bowl)
+  if (/\bkatoris?\b/.test(t))
+    return { quantity: 1, grams: Math.round(amount * 150) };
+
+  // Serving-based containers → quantity multiplier
+  if (/\b(?:plates?|thalis?|bowls?|pieces?|pcs?|slices?|servings?|portions?|scoops?)\b/.test(t))
+    return { quantity: amount, grams: null };
+
+  // Plain number → quantity (e.g. "3 rotis", "2 idlis")
+  return { quantity: amount, grams: null };
 }

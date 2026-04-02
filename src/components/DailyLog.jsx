@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import VoiceInput from "./VoiceInput";
 import ExerciseSection from "./ExerciseSection";
 import { addLogEntry, getLogsByDate, deleteLogEntry, updateLogEntry, getGoals, getExercisesByDate, todayStr, getAllRecipes } from "../db";
-import { searchFood, calcMacros, getMealTypeByTime } from "../foodDatabase";
+import { calcMacros, getMealTypeByTime } from "../foodDatabase";
 import { getGlobalFoods } from "../globalFoods";
+import { searchLocalFoods } from "../localFoodSearch";
 import { searchOpenFoodFacts } from "../openFoodFacts";
 
 const MEALS = ["breakfast", "lunch", "snack", "dinner"];
@@ -32,6 +33,7 @@ export default function DailyLog() {
   const [manualQty,     setManualQty]     = useState(1);
   const [manualGrams,   setManualGrams]   = useState("");
   const [searching,     setSearching]     = useState(false);
+  const [searchDone,    setSearchDone]    = useState(false);
   const searchId = useRef(0);
 
   // Inline edit
@@ -105,24 +107,51 @@ export default function DailyLog() {
   // ── Manual search ─────────────────────────────────────────
   async function handleManualSearch(q) {
     setManualQuery(q);
-    if (q.length < 2) { setManualResults([]); setSearching(false); return; }
+
+    if (q.length < 2) {
+      setManualResults([]);
+      setSearching(false);
+      setSearchDone(false);
+      return;
+    }
+
+    setSearching(true);
+    setSearchDone(false);
 
     const id = ++searchId.current;
 
+    // Custom recipes + global foods
     const [customs, globals] = await Promise.all([getAllRecipes(), getGlobalFoods()]);
-    if (id !== searchId.current) return; // superseded
+    if (id !== searchId.current) return;
 
-    const local = searchFood(q, [...customs, ...globals]);
-    setManualResults(local);
-    setSearching(true);
+    const customNames = new Set([...customs, ...globals].map(f => f.name.toLowerCase()));
+    const customMatches = [...customs, ...globals].filter(f =>
+      f.name.toLowerCase().includes(q.toLowerCase())
+    );
 
-    const offResults = await searchOpenFoodFacts(q);
-    if (id !== searchId.current) return; // superseded
+    // Local Fuse.js search — instant, no network
+    const localResults = await searchLocalFoods(q);
+    if (id !== searchId.current) return;
 
-    const localNames = new Set(local.map(f => f.name.toLowerCase()));
-    const extra = offResults.filter(f => !localNames.has(f.name.toLowerCase()));
-    setManualResults([...local, ...extra]);
+    // Merge: custom recipes first, then local DB (deduped)
+    const merged = [
+      ...customMatches,
+      ...localResults.filter(f => !customNames.has(f.name.toLowerCase())),
+    ];
+
+    setManualResults(merged);
+
+    // If local results are sparse, enrich with USDA in the background
+    if (merged.length < 5) {
+      const usdaResults = await searchOpenFoodFacts(q);
+      if (id !== searchId.current) return;
+      const mergedNames = new Set(merged.map(f => f.name.toLowerCase()));
+      const extra = usdaResults.filter(f => !mergedNames.has(f.name.toLowerCase()));
+      if (extra.length > 0) setManualResults([...merged, ...extra]);
+    }
+
     setSearching(false);
+    setSearchDone(true);
   }
 
   async function handleManualAdd(food) {
@@ -333,10 +362,10 @@ export default function DailyLog() {
               {searching && (
                 <div className="flex items-center gap-2 px-4 py-3 bg-surface-container-low text-xs text-on-surface-variant">
                   <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin flex-shrink-0" />
-                  Searching 3M+ foods…
+                  Searching…
                 </div>
               )}
-              {!searching && manualResults.length === 0 && manualQuery.length >= 2 && (
+              {searchDone && !searching && manualResults.length === 0 && (
                 <div className="px-4 py-3 bg-surface-container-low text-xs text-on-surface-variant text-center">
                   No results found. Try the Foods tab to add a custom entry.
                 </div>

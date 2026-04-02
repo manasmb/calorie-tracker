@@ -2,6 +2,7 @@
 // API key: get a free one at https://fdc.nal.usda.gov/api-guide.html
 // Falls back to DEMO_KEY (25 req/hr per IP) if no key is configured.
 const API_KEY = import.meta.env.VITE_USDA_API_KEY || "DEMO_KEY";
+const cache = new Map();
 const BASE    = "https://api.nal.usda.gov/fdc/v1/foods/search";
 
 function getNutrient(nutrients, name) {
@@ -40,6 +41,9 @@ function normalize(food) {
 export async function searchOpenFoodFacts(query, { pageSize = 10 } = {}) {
   if (!query || query.length < 2) return [];
 
+  const key = query.toLowerCase().trim();
+  if (cache.has(key)) return cache.get(key);
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 6000);
 
@@ -54,7 +58,9 @@ export async function searchOpenFoodFacts(query, { pageSize = 10 } = {}) {
     clearTimeout(timer);
     if (!res.ok) return [];
     const data = await res.json();
-    return (data.foods ?? []).map(normalize).filter(Boolean);
+    const results = (data.foods ?? []).map(normalize).filter(Boolean);
+    cache.set(key, results);
+    return results;
   } catch {
     clearTimeout(timer);
     return [];

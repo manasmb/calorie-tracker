@@ -252,6 +252,16 @@ export const FOODS = [
   { id:"paneer",            name:"Paneer",                  serving:"100g",           gramsPerServing:100,  cal:265, protein:18,  carbs:4,   fat:20,  fiber:0,   sugar:2,   sodium:30   },
   { id:"curd",              name:"Curd / Dahi",             serving:"1 cup",          gramsPerServing:245,  cal:100, protein:6,   carbs:8,   fat:4,   fiber:0,   sugar:8,   sodium:80   },
   { id:"ghee",              name:"Ghee",                    serving:"1 tsp",          gramsPerServing:5,    cal:45,  protein:0,   carbs:0,   fat:5,   fiber:0,   sugar:0,   sodium:0    },
+  { id:"nanak_ghee",        name:"Nanak Ghee",              serving:"1 tsp",          gramsPerServing:5,    cal:45,  protein:0,   carbs:0,   fat:5,   fiber:0,   sugar:0,   sodium:0    },
+  { id:"nandini_ghee",      name:"Nandini Ghee",            serving:"1 tsp",          gramsPerServing:5,    cal:45,  protein:0,   carbs:0,   fat:5,   fiber:0,   sugar:0,   sodium:0    },
+  { id:"amul_ghee",         name:"Amul Ghee",               serving:"1 tsp",          gramsPerServing:5,    cal:45,  protein:0,   carbs:0,   fat:5,   fiber:0,   sugar:0,   sodium:0    },
+  { id:"amul_butter",       name:"Amul Butter",             serving:"1 tsp",          gramsPerServing:5,    cal:36,  protein:0,   carbs:0,   fat:4,   fiber:0,   sugar:0,   sodium:30   },
+  { id:"amul_milk",         name:"Amul Milk (Full Cream)",  serving:"1 glass",        gramsPerServing:200,  cal:130, protein:6.4, carbs:9.4, fat:7.2, fiber:0,   sugar:9.4, sodium:100  },
+  { id:"nandini_milk",      name:"Nandini Milk (Full Cream)",serving:"1 glass",       gramsPerServing:200,  cal:130, protein:6.4, carbs:9.4, fat:7.2, fiber:0,   sugar:9.4, sodium:100  },
+  { id:"amul_paneer",       name:"Amul Paneer",             serving:"100g",           gramsPerServing:100,  cal:265, protein:18,  carbs:4,   fat:20,  fiber:0,   sugar:2,   sodium:30   },
+  { id:"amul_curd",         name:"Amul Curd",               serving:"1 cup",          gramsPerServing:200,  cal:120, protein:6,   carbs:9,   fat:6,   fiber:0,   sugar:9,   sodium:80   },
+  { id:"nandini_curd",      name:"Nandini Curd",            serving:"1 cup",          gramsPerServing:200,  cal:120, protein:6,   carbs:9,   fat:6,   fiber:0,   sugar:9,   sodium:80   },
+  { id:"mother_dairy_curd", name:"Mother Dairy Curd",       serving:"1 cup",          gramsPerServing:200,  cal:120, protein:6,   carbs:9,   fat:6,   fiber:0,   sugar:9,   sodium:80   },
   { id:"butter",            name:"Butter",                  serving:"1 tsp",          gramsPerServing:5,    cal:35,  protein:0,   carbs:0,   fat:4,   fiber:0,   sugar:0,   sodium:30   },
   { id:"cream",             name:"Fresh Cream",             serving:"1 tbsp",         gramsPerServing:15,   cal:52,  protein:0.3, carbs:0.4, fat:5.5, fiber:0,   sugar:0.4, sodium:6    },
   { id:"khoya",             name:"Khoya / Mawa",            serving:"50g",            gramsPerServing:50,   cal:170, protein:7,   carbs:13,  fat:10,  fiber:0,   sugar:12,  sodium:70   },
@@ -394,6 +404,7 @@ export const ALIASES = {
   "kebab":"seekh_kebab","paneer":"paneer","kheer":"kheer","biryani":"biryani_chicken",
   "aloo":"raw_potato","onion":"raw_onion","tomato":"raw_tomato","garlic":"raw_garlic",
   "ginger":"raw_ginger","atta":"whole_wheat_flour","halwa":"sooji_halwa",
+  "nanak":"nanak_ghee","nandini":"nandini_ghee","amul":"amul_ghee",
 };
 
 export function searchFood(query, customRecipes = []) {

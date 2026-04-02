@@ -3,6 +3,7 @@ import DailyLog from "./components/DailyLog";
 import History from "./components/History";
 import CustomRecipe from "./components/CustomRecipe";
 import Goals from "./components/Goals";
+import DietPlan from "./components/DietPlan";
 import AdminPanel from "./components/AdminPanel";
 import LoginScreen from "./components/LoginScreen";
 import { onAuthChange, signOutUser } from "./firebase";
@@ -13,6 +14,7 @@ const ADMIN_EMAIL = "bhatmanas12@gmail.com";
 const BASE_TABS = [
   { id: "today",   label: "Today",   icon: "calendar_today" },
   { id: "history", label: "History", icon: "history" },
+  { id: "diet",    label: "Diet",    icon: "today" },
   { id: "recipes", label: "Foods",   icon: "restaurant_menu" },
   { id: "goals",   label: "Goals",   icon: "ads_click" },
 ];
@@ -68,6 +70,7 @@ export default function App() {
         {tab === "today"   && <DailyLog />}
         {tab === "history" && <History />}
         {tab === "recipes" && <CustomRecipe />}
+        {tab === "diet"    && <DietPlan />}
         {tab === "goals"   && <Goals />}
         {tab === "admin"   && <AdminPanel />}
       </main>

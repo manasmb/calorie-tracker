@@ -1,7 +1,7 @@
 import { openDB } from "idb";
 import { auth } from "./firebase.js";
 
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 function getDB() {
   const uid = auth.currentUser?.uid ?? "local";
@@ -16,6 +16,9 @@ function getDB() {
       if (oldVersion < 2) {
         const ex = db.createObjectStore("exercises", { keyPath: "id", autoIncrement: true });
         ex.createIndex("date", "date");
+      }
+      if (oldVersion < 3) {
+        db.createObjectStore("dislikedFoods", { keyPath: "id" });
       }
     },
   });
@@ -98,6 +101,22 @@ export async function getAllExerciseDates() {
   const all = await db.getAll("exercises");
   const dates = [...new Set(all.map(e => e.date))];
   return dates.sort((a, b) => b.localeCompare(a));
+}
+
+// ── Disliked Foods ───────────────────────────────────────────
+export async function getDislikedFoods() {
+  const db = await getDB();
+  return db.getAll("dislikedFoods");
+}
+
+export async function addDislikedFood(food) {
+  const db = await getDB();
+  return db.put("dislikedFoods", food);
+}
+
+export async function removeDislikedFood(id) {
+  const db = await getDB();
+  return db.delete("dislikedFoods", id);
 }
 
 // ── Helpers ──────────────────────────────────────────────────

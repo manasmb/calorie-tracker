@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import VoiceInput from "./VoiceInput";
 import ExerciseSection from "./ExerciseSection";
 import { addLogEntry, getLogsByDate, deleteLogEntry, updateLogEntry, getGoals, getExercisesByDate, todayStr, getAllRecipes } from "../db";
@@ -32,6 +32,7 @@ export default function DailyLog() {
   const [manualQty,     setManualQty]     = useState(1);
   const [manualGrams,   setManualGrams]   = useState("");
   const [searching,     setSearching]     = useState(false);
+  const searchId = useRef(0);
 
   // Inline edit
   const [editingId,  setEditingId]  = useState(null);
@@ -106,14 +107,18 @@ export default function DailyLog() {
     setManualQuery(q);
     if (q.length < 2) { setManualResults([]); setSearching(false); return; }
 
-    // Show local results immediately
+    const id = ++searchId.current;
+
     const [customs, globals] = await Promise.all([getAllRecipes(), getGlobalFoods()]);
+    if (id !== searchId.current) return; // superseded
+
     const local = searchFood(q, [...customs, ...globals]);
     setManualResults(local);
-
-    // Then fetch OFF in background and append
     setSearching(true);
+
     const offResults = await searchOpenFoodFacts(q);
+    if (id !== searchId.current) return; // superseded
+
     setSearching(false);
     const localNames = new Set(local.map(f => f.name.toLowerCase()));
     const extra = offResults.filter(f => !localNames.has(f.name.toLowerCase()));
@@ -308,7 +313,7 @@ export default function DailyLog() {
             />
             <span className="text-xs text-on-surface-variant font-semibold">g</span>
           </div>
-          {(manualResults.length > 0 || searching) && (
+          {(manualResults.length > 0 || searching || manualQuery.length >= 2) && (
             <div className="rounded-2xl overflow-hidden divide-y divide-outline-variant/30">
               {manualResults.map(f => (
                 <button key={f.id} onClick={() => handleManualAdd(f)}
@@ -329,6 +334,11 @@ export default function DailyLog() {
                 <div className="flex items-center gap-2 px-4 py-3 bg-surface-container-low text-xs text-on-surface-variant">
                   <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin flex-shrink-0" />
                   Searching 3M+ foods…
+                </div>
+              )}
+              {!searching && manualResults.length === 0 && manualQuery.length >= 2 && (
+                <div className="px-4 py-3 bg-surface-container-low text-xs text-on-surface-variant text-center">
+                  No results found. Try the Foods tab to add a custom entry.
                 </div>
               )}
             </div>

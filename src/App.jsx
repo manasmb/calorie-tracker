@@ -76,14 +76,14 @@ export default function App() {
       </main>
 
       {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 w-full z-50 rounded-t-3xl bg-white/85 backdrop-blur-xl shadow-[0_-4px_20px_rgba(0,0,0,0.06)] flex justify-around items-center px-2 pt-2 pb-5">
+      <nav className="fixed bottom-0 left-0 w-full z-50 rounded-t-3xl bg-white/85 backdrop-blur-xl shadow-[0_-4px_20px_rgba(0,0,0,0.06)] flex justify-around items-center px-1 pt-2 pb-5">
         {TABS.map(t => {
           const active = tab === t.id;
           return (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`flex flex-col items-center justify-center px-5 py-2 rounded-2xl transition-all duration-200 ${
+              className={`flex flex-col items-center justify-center px-3 py-2 rounded-2xl transition-all duration-200 ${
                 active
                   ? "bg-emerald-100 text-emerald-800"
                   : "text-zinc-400 hover:text-zinc-600"
@@ -93,7 +93,9 @@ export default function App() {
                 style={{ fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}>
                 {t.icon}
               </span>
-              <span className="text-[10px] uppercase tracking-widest mt-0.5 font-semibold">{t.label}</span>
+              {active && (
+                <span className="text-[10px] uppercase tracking-widest mt-0.5 font-semibold">{t.label}</span>
+              )}
             </button>
           );
         })}

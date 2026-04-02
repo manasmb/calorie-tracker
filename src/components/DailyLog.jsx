@@ -321,8 +321,8 @@ export default function DailyLog() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <p className="text-sm font-semibold text-on-surface truncate">{f.name}</p>
-                      {f.source === "openfoodfacts" && (
-                        <span className="flex-shrink-0 text-[9px] font-bold uppercase tracking-wide text-white bg-orange-400 px-1.5 py-0.5 rounded-full">OFF</span>
+                      {f.source === "usda" && (
+                        <span className="flex-shrink-0 text-[9px] font-bold uppercase tracking-wide text-white bg-blue-500 px-1.5 py-0.5 rounded-full">USDA</span>
                       )}
                     </div>
                     <p className="text-xs text-on-surface-variant">{f.serving} · P:{Math.round(f.protein)}g C:{Math.round(f.carbs)}g F:{Math.round(f.fat)}g</p>

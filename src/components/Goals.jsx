@@ -252,16 +252,25 @@ export default function Goals() {
         <div className="bg-surface-container-lowest rounded-4xl p-5 space-y-3">
           <div className="flex justify-between items-center">
             <p className="text-xs uppercase tracking-widest font-semibold text-on-surface-variant">Timeline</p>
-            <span className="text-sm font-bold text-primary">{profile.weeksToGoal} weeks</span>
+            <span className="text-sm font-bold text-primary">
+              {profile.weeksToGoal < 5
+                ? `${profile.weeksToGoal} weeks`
+                : profile.weeksToGoal < 9
+                ? `${profile.weeksToGoal} weeks`
+                : `${Math.round(profile.weeksToGoal / 4.33)} months`}
+            </span>
           </div>
           <input type="range" name="weeksToGoal" min="2" max="52" step="1"
             value={profile.weeksToGoal} onChange={handleProfileChange}
             className="w-full accent-primary"
           />
           <div className="flex justify-between text-xs text-on-surface-variant">
-            <span>2 weeks</span>
-            <span>6 months</span>
-            <span>1 year</span>
+            {[2,4,8,13,26,39,52].map(w => (
+              <button key={w} onClick={() => setProfile(p => ({...p, weeksToGoal: w}))}
+                className={`font-semibold transition-colors ${parseInt(profile.weeksToGoal) === w ? "text-primary" : "hover:text-on-surface"}`}>
+                {w < 5 ? `${w}w` : w < 13 ? `${w}w` : w === 13 ? "3m" : w === 26 ? "6m" : w === 39 ? "9m" : "1yr"}
+              </button>
+            ))}
           </div>
           {profile.currentWeight && profile.targetWeight && weightDiff !== 0 && (
             <p className="text-xs text-on-surface-variant text-center">

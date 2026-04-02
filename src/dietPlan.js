@@ -2,6 +2,23 @@ import { FOODS } from "./foodDatabase";
 
 const FOOD_MAP = Object.fromEntries(FOODS.map(f => [f.id, f]));
 
+// In the Indian context eggs are typically considered non-veg
+export const NON_VEG_IDS = new Set([
+  "boiled_egg", "omelette", "egg_bhurji", "egg_curry", "anda_paratha",
+  "biryani_egg", "biryani_chicken", "biryani_mutton", "biryani_prawn",
+  "chicken_curry", "butter_chicken", "kadai_chicken", "chicken_masala",
+  "chicken_do_pyaza", "achari_chicken", "methi_chicken", "chicken_korma",
+  "chettinad_chicken", "chicken_tikka", "tandoori_chicken", "chicken_65",
+  "seekh_kebab", "galouti_kebab", "shammi_kebab", "reshmi_kebab",
+  "chicken_roll", "chicken_shawarma", "chicken_fried_rice",
+  "mutton_curry", "rogan_josh", "keema", "laal_maas", "nihari",
+  "haleem", "paya", "keema_matar",
+  "fish_curry", "kerala_fish_curry", "goan_fish_curry", "fish_fry",
+  "prawn_curry", "prawn_masala", "machher_jhol", "shorshe_ilish",
+  "crab_curry", "raw_chicken", "raw_mutton", "raw_fish", "raw_prawn",
+  "momos_chicken", "egg_roll",
+]);
+
 // ── Meal structures ───────────────────────────────────────────────────────────
 // Each slot: { weight: share-of-meal-calories, options: [foodId,...] }
 // Options ordered: weight-loss-friendly → maintenance → gain
@@ -113,17 +130,21 @@ function goalType(goals) {
   return cw > tw ? "loss" : "gain";
 }
 
-function pickFood(seed, slotIndex, options, dislikedIds, type) {
+function pickFood(seed, slotIndex, options, dislikedIds, type, vegOnly) {
   const len = options.length;
   let offset = 0;
   if (type === "maintenance") offset = Math.floor(len * 0.3);
   else if (type === "gain")    offset = Math.floor(len * 0.6);
 
-  // Filter to known + non-disliked
-  const available = options.filter(id => FOOD_MAP[id] && !dislikedIds.has(id));
+  // Filter to known + non-disliked + (optionally) veg-only
+  const available = options.filter(id =>
+    FOOD_MAP[id] &&
+    !dislikedIds.has(id) &&
+    (!vegOnly || !NON_VEG_IDS.has(id))
+  );
   if (available.length === 0) {
-    // fallback: pick first known food regardless of dislike
-    const fallback = options.find(id => FOOD_MAP[id]);
+    // fallback: ignore dislikes but still respect vegOnly
+    const fallback = options.find(id => FOOD_MAP[id] && (!vegOnly || !NON_VEG_IDS.has(id)));
     return fallback ? FOOD_MAP[fallback] : null;
   }
 
@@ -142,7 +163,7 @@ function round1(n) { return Math.round(n * 10) / 10; }
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export function generateMealPlan(goals, _profile, dislikedIds, seed) {
+export function generateMealPlan(goals, _profile, dislikedIds, seed, vegOnly = false) {
   const totalCal = goals?.calories ?? 2000;
   const type = goalType(goals ?? {});
 
@@ -157,6 +178,7 @@ export function generateMealPlan(goals, _profile, dislikedIds, seed) {
         slot.options,
         dislikedIds,
         type,
+        vegOnly,
       );
       if (!food) return;
 

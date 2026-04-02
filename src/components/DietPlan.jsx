@@ -204,6 +204,9 @@ export default function DietPlan() {
   const [seed,              setSeed]              = useState(0);
   const [showDislikedPanel, setShowDislikedPanel] = useState(false);
   const [loading,           setLoading]           = useState(true);
+  const [vegOnly,           setVegOnly]           = useState(
+    () => localStorage.getItem("dietVegOnly") === "true"
+  );
 
   // ── Load on mount ─────────────────────────────────────────
   useEffect(() => {
@@ -217,13 +220,13 @@ export default function DietPlan() {
     load();
   }, []);
 
-  // ── Regenerate plan whenever seed / disliked / goals change ──
+  // ── Regenerate plan whenever seed / disliked / goals / vegOnly change ──
   useEffect(() => {
     if (!goals) return;
     const dislikedSet = new Set(disliked.keys());
-    const newPlan = generateMealPlan(goals, goals, dislikedSet, seed);
+    const newPlan = generateMealPlan(goals, goals, dislikedSet, seed, vegOnly);
     setPlan(newPlan);
-  }, [seed, disliked, goals]);
+  }, [seed, disliked, goals, vegOnly]);
 
   // ── Handlers ──────────────────────────────────────────────
   const handleDislike = useCallback(async (food) => {
@@ -248,6 +251,14 @@ export default function DietPlan() {
 
   const handleRefresh = useCallback(() => {
     setSeed(s => s + 1);
+  }, []);
+
+  const handleVegToggle = useCallback(() => {
+    setVegOnly(v => {
+      const next = !v;
+      localStorage.setItem("dietVegOnly", next);
+      return next;
+    });
   }, []);
 
   // ── Loading state ─────────────────────────────────────────
@@ -277,6 +288,18 @@ export default function DietPlan() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleVegToggle}
+            title={vegOnly ? "Switch to all foods" : "Switch to veg only"}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-bold transition-colors ${
+              vegOnly
+                ? "bg-green-100 text-green-700"
+                : "bg-surface-container-lowest text-on-surface-variant hover:bg-green-50 hover:text-green-600"
+            }`}
+          >
+            <span className="text-base leading-none">{vegOnly ? "🥦" : "🍽️"}</span>
+            <span>{vegOnly ? "Veg" : "All"}</span>
+          </button>
           {hasGoals && (
             <button
               onClick={handleRefresh}

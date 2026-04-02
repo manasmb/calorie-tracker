@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { saveRecipe, getAllRecipes, deleteRecipe } from "../db";
 import { searchFood, calcMacros } from "../foodDatabase";
 import { getGlobalFoods } from "../globalFoods";
+import { searchOpenFoodFacts } from "../openFoodFacts";
 
 const EMPTY_QUICK = { name:"", serving:"1 serving", cal:"", protein:"", carbs:"", fat:"", fiber:"", sugar:"", sodium:"" };
 const UNITS = ["g","ml","tsp","tbsp","cup","serving"];
@@ -49,8 +50,10 @@ export default function CustomRecipe() {
   async function handleIngredientSearch(q) {
     setIngredientQuery(q);
     if (q.length < 2) { setIngredientResults([]); return; }
-    const [customs, globals] = await Promise.all([getAllRecipes(), getGlobalFoods()]);
-    setIngredientResults(searchFood(q, [...customs, ...globals]));
+    const [customs, globals, offResults] = await Promise.all([getAllRecipes(), getGlobalFoods(), searchOpenFoodFacts(q)]);
+    const local = searchFood(q, [...customs, ...globals]);
+    const localNames = new Set(local.map(f => f.name.toLowerCase()));
+    setIngredientResults([...local, ...offResults.filter(f => !localNames.has(f.name.toLowerCase()))]);
   }
 
   function addIngredient(food) { setIngredients(p => [...p, { food, amount: food.gramsPerServing, unit:"g" }]); setIngredientQuery(""); setIngredientResults([]); }

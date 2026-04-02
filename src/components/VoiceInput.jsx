@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { searchFood, getMealTypeByTime, parseMealTypeFromText, parseAmountFromText } from "../foodDatabase";
 import { getAllRecipes } from "../db";
 import { getGlobalFoods } from "../globalFoods";
+import { searchOpenFoodFacts } from "../openFoodFacts";
 
 function speak(text) {
   if (!window.speechSynthesis) return;
@@ -35,7 +36,7 @@ export default function VoiceInput({ onFoodDetected }) {
 
   async function processTranscript(text) {
     setStatus(`Processing…`);
-    const [customs, globals] = await Promise.all([getAllRecipes(), getGlobalFoods()]);
+    const [customs, globals, offResults] = await Promise.all([getAllRecipes(), getGlobalFoods(), searchOpenFoodFacts(text)]);
     const allExtras = [...customs, ...globals];
     const meal    = parseMealTypeFromText(text) || getMealTypeByTime();
     const { quantity, grams } = parseAmountFromText(text);
@@ -45,7 +46,9 @@ export default function VoiceInput({ onFoodDetected }) {
       const msg = confirmMsg(customMatch.name, quantity, grams, meal);
       setStatus(`✓ ${msg}`); speak(msg); return;
     }
-    const results = searchFood(text, allExtras);
+    const localResults = searchFood(text, allExtras);
+    const localNames   = new Set(localResults.map(f => f.name.toLowerCase()));
+    const results      = [...localResults, ...offResults.filter(f => !localNames.has(f.name.toLowerCase()))];
     if (results.length === 1) {
       onFoodDetected({ food: results[0], quantity, grams, meal });
       const msg = confirmMsg(results[0].name, quantity, grams, meal);

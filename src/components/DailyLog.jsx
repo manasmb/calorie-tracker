@@ -4,6 +4,7 @@ import ExerciseSection from "./ExerciseSection";
 import { addLogEntry, getLogsByDate, deleteLogEntry, updateLogEntry, getGoals, getExercisesByDate, todayStr, getAllRecipes } from "../db";
 import { searchFood, calcMacros, getMealTypeByTime } from "../foodDatabase";
 import { getGlobalFoods } from "../globalFoods";
+import { searchOpenFoodFacts } from "../openFoodFacts";
 
 const MEALS = ["breakfast", "lunch", "snack", "dinner"];
 const MEAL_ICONS   = { breakfast: "wb_sunny", lunch: "restaurant", snack: "nutrition", dinner: "nights_stay" };
@@ -30,6 +31,7 @@ export default function DailyLog() {
   const [manualMeal,    setManualMeal]    = useState(getMealTypeByTime());
   const [manualQty,     setManualQty]     = useState(1);
   const [manualGrams,   setManualGrams]   = useState("");
+  const [searching,     setSearching]     = useState(false);
 
   // Inline edit
   const [editingId,  setEditingId]  = useState(null);
@@ -102,9 +104,19 @@ export default function DailyLog() {
   // ── Manual search ─────────────────────────────────────────
   async function handleManualSearch(q) {
     setManualQuery(q);
-    if (q.length < 2) { setManualResults([]); return; }
-    const [customs, globals] = await Promise.all([getAllRecipes(), getGlobalFoods()]);
-    setManualResults(searchFood(q, [...customs, ...globals]));
+    if (q.length < 2) { setManualResults([]); setSearching(false); return; }
+    setSearching(true);
+    const [customs, globals, offResults] = await Promise.all([
+      getAllRecipes(),
+      getGlobalFoods(),
+      searchOpenFoodFacts(q),
+    ]);
+    const local = searchFood(q, [...customs, ...globals]);
+    // Merge: local first, then OFF results not already covered by name
+    const localNames = new Set(local.map(f => f.name.toLowerCase()));
+    const merged = [...local, ...offResults.filter(f => !localNames.has(f.name.toLowerCase()))];
+    setManualResults(merged);
+    setSearching(false);
   }
 
   async function handleManualAdd(food) {
@@ -295,16 +307,27 @@ export default function DailyLog() {
             />
             <span className="text-xs text-on-surface-variant font-semibold">g</span>
           </div>
-          {manualResults.length > 0 && (
+          {searching && (
+            <div className="flex items-center gap-2 px-2 py-1 text-xs text-on-surface-variant">
+              <div className="w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+              Searching global database…
+            </div>
+          )}
+          {!searching && manualResults.length > 0 && (
             <div className="rounded-2xl overflow-hidden divide-y divide-outline-variant/30">
               {manualResults.map(f => (
                 <button key={f.id} onClick={() => handleManualAdd(f)}
                   className="flex justify-between items-center w-full px-4 py-3 bg-surface-container-low hover:bg-surface-container text-left transition-colors">
-                  <div>
-                    <p className="text-sm font-semibold text-on-surface">{f.name}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold text-on-surface truncate">{f.name}</p>
+                      {f.source === "openfoodfacts" && (
+                        <span className="flex-shrink-0 text-[9px] font-bold uppercase tracking-wide text-white bg-orange-400 px-1.5 py-0.5 rounded-full">OFF</span>
+                      )}
+                    </div>
                     <p className="text-xs text-on-surface-variant">{f.serving} · P:{Math.round(f.protein)}g C:{Math.round(f.carbs)}g F:{Math.round(f.fat)}g</p>
                   </div>
-                  <span className="text-sm font-bold text-primary ml-3">{f.cal}</span>
+                  <span className="text-sm font-bold text-primary ml-3 flex-shrink-0">{f.cal}</span>
                 </button>
               ))}
             </div>

@@ -33,7 +33,8 @@ export default function DailyLog() {
   const [manualGrams,   setManualGrams]   = useState("");
   const [searching,     setSearching]     = useState(false);
   const [searchDone,    setSearchDone]    = useState(false);
-  const searchId = useRef(0);
+  const searchId      = useRef(0);
+  const customsCache  = useRef(null); // { customs: [], globals: [] } — loaded once
 
   // Inline edit
   const [editingId,  setEditingId]  = useState(null);
@@ -55,6 +56,13 @@ export default function DailyLog() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Pre-load custom recipes + global foods once so search never awaits Firestore
+  useEffect(() => {
+    Promise.all([getAllRecipes(), getGlobalFoods()]).then(([customs, globals]) => {
+      customsCache.current = { customs, globals };
+    });
+  }, []);
 
   // ── Food logging ──────────────────────────────────────────
   async function handleFoodDetected({ food, candidates: cands, quantity, grams, meal }) {
@@ -104,8 +112,9 @@ export default function DailyLog() {
   }
 
   // ── Manual search ─────────────────────────────────────────
-  async function handleManualSearch(q) {
+  function handleManualSearch(q) {
     setManualQuery(q);
+    ++searchId.current;
 
     if (q.length < 2) {
       setManualResults([]);
@@ -114,31 +123,25 @@ export default function DailyLog() {
       return;
     }
 
-    setSearching(true);
-    setSearchDone(false);
+    // searchLocalFoods is synchronous once the JSON is loaded
+    const localResults = searchLocalFoods(q);
 
-    const id = ++searchId.current;
+    // Merge with cached custom recipes + global foods (no network call)
+    const cache = customsCache.current;
+    if (cache) {
+      const customMatches = [...cache.customs, ...cache.globals].filter(f =>
+        f.name.toLowerCase().includes(q.toLowerCase())
+      );
+      const localNames = new Set(localResults.map(f => f.name.toLowerCase()));
+      const merged = [
+        ...customMatches,
+        ...localResults.filter(f => !localNames.has(f.name.toLowerCase())),
+      ];
+      setManualResults(merged);
+    } else {
+      setManualResults(localResults);
+    }
 
-    // Custom recipes + global foods
-    const [customs, globals] = await Promise.all([getAllRecipes(), getGlobalFoods()]);
-    if (id !== searchId.current) return;
-
-    const customNames = new Set([...customs, ...globals].map(f => f.name.toLowerCase()));
-    const customMatches = [...customs, ...globals].filter(f =>
-      f.name.toLowerCase().includes(q.toLowerCase())
-    );
-
-    // Local Fuse.js search — instant, no network
-    const localResults = await searchLocalFoods(q);
-    if (id !== searchId.current) return;
-
-    // Merge: custom recipes first, then local DB (deduped)
-    const merged = [
-      ...customMatches,
-      ...localResults.filter(f => !customNames.has(f.name.toLowerCase())),
-    ];
-
-    setManualResults(merged);
     setSearching(false);
     setSearchDone(true);
   }

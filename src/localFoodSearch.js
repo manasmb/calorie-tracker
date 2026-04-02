@@ -1,44 +1,43 @@
-import Fuse from "fuse.js";
 import { FOODS } from "./foodDatabase";
 
-const FUSE_OPTS = {
-  keys: [{ name: "name", weight: 1 }],
-  threshold: 0.35,
-  distance: 200,
-  minMatchCharLength: 2,
-  includeScore: true,
-};
+// All foods merged into one array once the JSON loads.
+// Simple string matching — far faster than Fuse.js for food names
+// and gives better results (users type what they're looking for).
+let allFoods = [...FOODS]; // start with local Indian foods immediately
+let jsonLoaded = false;
 
-// Fuse instance over the bundled DB + local Indian foods.
-// Built once on first search, reused forever.
-let fuse = null;
-let loadPromise = null;
+// Kick off the JSON load as soon as this module is imported
+fetch("/foodDb.json")
+  .then(r => r.json())
+  .then(usdaFoods => {
+    // Merge, local Indian foods first (rank higher on ties)
+    const existingIds = new Set(FOODS.map(f => f.id));
+    allFoods = [...FOODS, ...usdaFoods.filter(f => !existingIds.has(f.id))];
+    jsonLoaded = true;
+  })
+  .catch(() => { jsonLoaded = true; }); // graceful fallback
 
-async function getFuse() {
-  if (fuse) return fuse;
-  if (loadPromise) return loadPromise;
-
-  loadPromise = fetch("/foodDb.json")
-    .then(r => r.json())
-    .then(usdaFoods => {
-      // Local Indian foods first so they rank higher on ties
-      fuse = new Fuse([...FOODS, ...usdaFoods], FUSE_OPTS);
-      return fuse;
-    })
-    .catch(() => {
-      // If file not yet generated, fall back to local foods only
-      fuse = new Fuse(FOODS, FUSE_OPTS);
-      return fuse;
-    });
-
-  return loadPromise;
-}
-
-// Warm up the index as soon as this module is imported
-getFuse();
-
-export async function searchLocalFoods(query) {
+export function searchLocalFoods(query) {
   if (!query || query.length < 2) return [];
-  const f = await getFuse();
-  return f.search(query).map(r => r.item);
+  const q = query.toLowerCase().trim();
+  const words = q.split(/\s+/).filter(Boolean);
+
+  const tier1 = []; // name starts with query
+  const tier2 = []; // name contains query as substring
+  const tier3 = []; // all individual words appear in name
+
+  for (const food of allFoods) {
+    const n = food.name.toLowerCase();
+    if (n.startsWith(q)) {
+      tier1.push(food);
+    } else if (n.includes(q)) {
+      tier2.push(food);
+    } else if (words.length > 1 && words.every(w => n.includes(w))) {
+      tier3.push(food);
+    }
+  }
+
+  return [...tier1, ...tier2, ...tier3].slice(0, 30);
 }
+
+export function isIndexReady() { return jsonLoaded; }

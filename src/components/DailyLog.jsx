@@ -119,10 +119,10 @@ export default function DailyLog() {
     const offResults = await searchOpenFoodFacts(q);
     if (id !== searchId.current) return; // superseded
 
-    setSearching(false);
     const localNames = new Set(local.map(f => f.name.toLowerCase()));
     const extra = offResults.filter(f => !localNames.has(f.name.toLowerCase()));
     setManualResults([...local, ...extra]);
+    setSearching(false);
   }
 
   async function handleManualAdd(food) {
